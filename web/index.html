@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Doc-Helper</title>
+  <style>
+    :root {
+      --bg: #f5f6f8;
+      --card: #ffffff;
+      --line: #e3e6ea;
+      --text: #1f2430;
+      --muted: #6b7280;
+      --primary: #2f6fed;
+      --primary-dark: #255cc8;
+      --green: #16a34a;
+      --red: #dc2626;
+      --amber: #b45309;
+      --radius: 10px;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Microsoft YaHei", "PingFang SC", system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 24px;
+      background: var(--card);
+      border-bottom: 1px solid var(--line);
+    }
+    header .brand { font-size: 18px; font-weight: 700; }
+    header .brand small { color: var(--muted); font-weight: 400; margin-left: 8px; }
+    .btn {
+      border: 1px solid var(--line);
+      background: var(--card);
+      padding: 7px 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 13px;
+      color: var(--text);
+    }
+    .btn:hover { background: #f0f2f5; }
+    .btn.primary { background: var(--primary); border-color: var(--primary); color: #fff; }
+    .btn.primary:hover { background: var(--primary-dark); }
+    .btn.danger { color: var(--red); }
+    .btn:disabled { opacity: .5; cursor: not-allowed; }
+    .container { max-width: 900px; margin: 24px auto; padding: 0 20px; }
+    .hidden { display: none !important; }
+
+    /* 工具列表 */
+    .tool-card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 16px 18px;
+      margin-bottom: 14px;
+    }
+    .tool-card.draft { opacity: .72; }
+    .tool-card-head { display: flex; align-items: center; gap: 10px; }
+    .tool-name { font-weight: 700; font-size: 15px; }
+    .badge { font-size: 11px; padding: 2px 8px; border-radius: 20px; }
+    .badge.on { background: #e7f6ec; color: var(--green); }
+    .badge.off { background: #fef3e2; color: var(--amber); }
+    .tool-desc { color: var(--muted); font-size: 13px; margin: 8px 0 12px; line-height: 1.6; }
+    .tool-card-actions { display: flex; gap: 8px; }
+    .empty { color: var(--muted); text-align: center; padding: 60px 0; }
+
+    /* 调用页 */
+    .back { margin-bottom: 16px; }
+    .call-title { font-size: 20px; font-weight: 700; }
+    .call-desc { color: var(--muted); font-size: 13px; margin: 6px 0 18px; }
+    .panel {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 18px;
+      margin-bottom: 14px;
+    }
+    .param { margin-bottom: 16px; }
+    .param label { font-weight: 600; font-size: 13px; }
+    .param .req { color: var(--red); }
+    .param .hint { color: var(--muted); font-size: 12px; margin: 2px 0 6px; }
+    .text-input, .file-input {
+      width: 100%;
+      padding: 8px 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      font-size: 13px;
+    }
+    .file-names { color: var(--primary); font-size: 12px; margin-top: 4px; }
+    .actions { display: flex; gap: 8px; align-items: center; }
+    #run-progress { color: var(--primary); font-size: 13px; margin-top: 10px; }
+    .result-ok { color: var(--green); font-weight: 600; margin-bottom: 8px; }
+    .result-err { color: var(--red); font-weight: 600; }
+    .result-links { display: flex; gap: 10px; flex-wrap: wrap; }
+    .download {
+      display: inline-block;
+      background: #eef4ff;
+      color: var(--primary);
+      text-decoration: none;
+      padding: 8px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+    }
+    .download:hover { background: #dfeaff; }
+
+    /* 设置弹窗 */
+    .modal-mask {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,.4);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 10;
+    }
+    .modal {
+      background: var(--card);
+      border-radius: 12px;
+      padding: 22px;
+      width: 440px;
+      max-width: 92vw;
+    }
+    .modal h3 { margin: 0 0 16px; }
+    .modal .field { margin-bottom: 12px; }
+    .modal .field label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+    .modal .text-input { width: 100%; }
+    .modal .actions { justify-content: flex-end; margin-top: 16px; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">Doc-Helper <small>本地文档处理助手</small></div>
+    <button id="settings-btn" class="btn">设置</button>
+  </header>
+
+  <div class="container">
+    <!-- 主界面：工具列表 -->
+    <div id="main-view">
+      <h2 style="margin:0 0 16px;">工具列表</h2>
+      <div id="tool-list"></div>
+    </div>
+
+    <!-- 工具调用界面 -->
+    <div id="call-view" class="hidden">
+      <button id="call-back" class="btn back">← 返回</button>
+      <div class="call-title" id="call-title"></div>
+      <div class="call-desc" id="call-desc"></div>
+      <div class="panel">
+        <div id="param-fields"></div>
+        <div class="actions">
+          <button id="run-btn" class="btn primary">开始运行</button>
+          <button id="cancel-btn" class="btn danger hidden">取消</button>
+        </div>
+      </div>
+      <div id="run-progress" class="hidden"></div>
+      <div id="run-result" class="panel hidden"></div>
+    </div>
+  </div>
+
+  <!-- 设置弹窗 -->
+  <div id="settings-modal" class="modal-mask hidden">
+    <div class="modal">
+      <h3>大模型设置</h3>
+      <div class="field"><label>厂商</label><input id="set-vendor" class="text-input" placeholder="deepseek"></div>
+      <div class="field"><label>Base URL</label><input id="set-base" class="text-input" placeholder="https://api.deepseek.com"></div>
+      <div class="field"><label>模型名</label><input id="set-model" class="text-input" placeholder="deepseek-chat"></div>
+      <div class="field"><label>API Key</label><input id="set-key" class="text-input" type="password" placeholder="sk-...">
+        <div id="set-key-hint" class="hint" style="color:var(--muted);font-size:12px;margin-top:4px;"></div>
+      </div>
+      <div class="actions">
+        <button id="settings-close" class="btn">取消</button>
+        <button id="settings-save" class="btn primary">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>
