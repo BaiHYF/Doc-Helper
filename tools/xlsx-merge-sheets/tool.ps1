@@ -60,6 +60,7 @@ $index = 0
 
 foreach ($src in $sources) {
   $sheetName = Get-SheetName $src.Name
+  Write-Output ('{"progress":"正在处理 ' + $src.Name + '"}')
 
   # 读取源文件第一个 sheet 的单元格
   $doc = Get-OCJson @('get', $src.FullName, '/', '--json')

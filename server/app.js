@@ -4,6 +4,7 @@ const path = require('node:path');
 const { ToolRegistry } = require('./toolRegistry.js');
 const { ToolRunner } = require('./toolRunner.js');
 const { FileStore } = require('./fileStore.js');
+const { Agent } = require('./agent.js');
 const config = require('./config.js');
 
 const MIME = {
@@ -69,6 +70,9 @@ class DocHelperApp {
         this.json(res, 200, { ok: true });
       }).catch((e) => this.json(res, 400, { error: e.message }));
     }
+    if (method === 'POST' && pathname === '/api/chat') {
+      return this.handleChat(req, res);
+    }
     if (method === 'POST' && /^\/api\/tools\/[^/]+\/enable$/.test(pathname)) {
       const name = pathname.split('/')[3];
       return this.readJson(req).then((body) => {
@@ -90,6 +94,10 @@ class DocHelperApp {
       const taskId = pathname.split('/')[5];
       return this.cancelTask(taskId, res);
     }
+    if (method === 'GET' && /^\/api\/tools\/[^/]+\/run\/[^/]+\/events$/.test(pathname)) {
+      const taskId = pathname.split('/')[5];
+      return this.taskEvents(taskId, res);
+    }
     if (method === 'GET' && /^\/api\/tools\/[^/]+\/run\/[^/]+$/.test(pathname)) {
       const taskId = pathname.split('/')[5];
       return this.taskStatus(taskId, res);
@@ -110,6 +118,39 @@ class DocHelperApp {
       return this.json(res, 404, { error: '接口不存在' });
     }
     return this.serveStatic(pathname, res);
+  }
+
+  /**
+   * 智能体聊天 SSE：事件 text（逐字）/ tool_call / tool_result / draft_tool / done / failed
+   */
+  handleChat(req, res) {
+    return this.readJson(req).then((body) => {
+      const messages = Array.isArray(body.messages) ? body.messages : [];
+      res.writeHead(200, {
+        'Content-Type': 'text/event-stream; charset=utf-8',
+        'Cache-Control': 'no-cache',
+        Connection: 'keep-alive'
+      });
+      const send = (event, data) => {
+        if (res.writableEnded) return;
+        res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+      };
+      const agent = new Agent({
+        registry: this.registry,
+        runner: this.runner,
+        llm: config.load().llm,
+        toolsRoot: this.toolsRoot
+      });
+      agent.chat({
+        messages,
+        onText: (t) => send('text', { text: t }),
+        onToolCall: (c) => send('tool_call', c),
+        onToolResult: (r) => send('tool_result', { name: r.name, ...r.result }),
+        onDraftTool: (d) => send('draft_tool', d)
+      }).then(() => send('done', { ok: true }))
+        .catch((e) => send('failed', { error: e.message }))
+        .finally(() => { try { res.end(); } catch (_) { /* 已断开 */ } });
+    }).catch((e) => this.json(res, 400, { error: e.message }));
   }
 
   startRun(name, req, res) {
@@ -138,12 +179,20 @@ class DocHelperApp {
       }
       const task = this.fileStore.createTask();
       this.fileStore.saveFiles(task, files);
+      // 按参数 schema 强制 type:"file" 参数映射到上传目录
+      const props = tool.parameters?.properties || {};
+      for (const [pname, prop] of Object.entries(props)) {
+        if (prop.type === 'file') body.args[pname] = '@uploads';
+      }
       const args = this.fileStore.resolveArgs(body.args || {}, task.uploadsDir, task.resultsDir);
       const ac = new AbortController();
-      const record = { id: task.id, name, args, status: 'running', result: null, error: null, ac };
+      const record = { id: task.id, name, args, status: 'running', progress: '', result: null, error: null, ac };
       this.tasks.set(task.id, record);
 
-      this.runner.runTool(name, args, { signal: ac.signal })
+      this.runner.runTool(name, args, {
+        signal: ac.signal,
+        onProgress: (p) => { record.progress = p; }
+      })
         .then((result) => {
           record.status = 'done';
           record.result = result;
@@ -174,9 +223,54 @@ class DocHelperApp {
       status: record.status,
       name: record.name,
       args: record.args,
+      progress: record.progress,
       result: record.result,
       error: record.error
     });
+  }
+
+  /**
+   * 任务进度 SSE：实时推送 progress 事件，终态推送 done/error/cancelled 后关闭。
+   * 简单实现：心跳轮询任务记录，对比上次发送的 progress/status。
+   */
+  taskEvents(taskId, res) {
+    const record = this.tasks.get(taskId);
+    if (!record) return this.json(res, 404, { error: `任务不存在: ${taskId}` });
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream; charset=utf-8',
+      'Cache-Control': 'no-cache',
+      Connection: 'keep-alive'
+    });
+    const send = (event, data) => {
+      res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+    };
+
+    let lastProgress = null;
+    let lastStatus = null;
+    const tick = () => {
+      if (res.writableEnded) return;
+      if (record.progress !== lastProgress) {
+        lastProgress = record.progress;
+        send('progress', { progress: record.progress });
+      }
+      if (record.status !== lastStatus) {
+        lastStatus = record.status;
+        if (record.status === 'done') {
+          send('done', { result: record.result });
+        } else if (record.status === 'error' || record.status === 'cancelled') {
+          send(record.status === 'cancelled' ? 'cancelled' : 'failed', { error: record.error || record.status });
+        } else {
+          send('status', { status: record.status });
+        }
+      }
+      if (record.status !== 'running') {
+        clearInterval(timer);
+        res.end();
+      }
+    };
+    const timer = setInterval(tick, 400);
+    tick();
+    res.on('close', () => clearInterval(timer));
   }
 
   downloadResult(taskId, fileName, res) {

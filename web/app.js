@@ -40,7 +40,7 @@ const api = {
 
 let currentTool = null;
 let currentTask = null;
-let pollTimer = null;
+let taskEventSource = null;
 let selectedFiles = [];
 
 function escapeHtml(s) {
@@ -79,6 +79,13 @@ async function loadTools() {
   }
 }
 
+/** 参数分类：type:"file" → 文件上传；output:true → 输出路径；其余 → 普通文本 */
+function paramKind(prop) {
+  if (prop && prop.type === 'file') return 'file';
+  if (prop && prop.output === true) return 'output';
+  return 'text';
+}
+
 function showToolCall(tool) {
   currentTool = tool;
   $('#main-view').classList.add('hidden');
@@ -98,9 +105,9 @@ function showToolCall(tool) {
 
   const params = tool.parameters?.properties || {};
   const required = tool.parameters?.required || [];
-  const hasInput = Object.keys(params).some((n) => /^input/i.test(n));
+  const hasInput = Object.keys(params).some((n) => paramKind(params[n]) === 'file');
 
-  // 统一文件拖放区（工具含 input 参数时显示）
+  // 统一文件拖放区（工具含 type:"file" 参数时显示）
   if (hasInput) {
     const zone = document.createElement('div');
     zone.className = 'drop-zone';
@@ -130,11 +137,11 @@ function showToolCall(tool) {
     });
   }
 
-  // 非 input 参数：output 与其它文本参数
+  // 非 file 参数：output 与其它文本参数
   for (const [name, prop] of Object.entries(params)) {
-    if (/^input/i.test(name)) continue;
+    if (paramKind(prop) === 'file') continue;
     const isRequired = required.includes(name);
-    const isOutput = /^output/i.test(name);
+    const isOutput = paramKind(prop) === 'output';
     const field = document.createElement('div');
     field.className = 'param';
     field.innerHTML = `
@@ -242,7 +249,7 @@ function validate() {
   if (!tool) return;
   const params = tool.parameters?.properties || {};
   const required = tool.parameters?.required || [];
-  const hasInput = Object.keys(params).some((n) => /^input/i.test(n));
+  const hasInput = Object.keys(params).some((n) => paramKind(params[n]) === 'file');
 
   let ok = true;
   if (hasInput) {
@@ -252,7 +259,7 @@ function validate() {
     if (max !== null && selectedFiles.length > max) ok = false;
   }
   for (const name of required) {
-    if (/^input/i.test(name)) continue;
+    if (paramKind(params[name]) === 'file') continue;
     const input = document.querySelector(`.text-input[data-param="${name}"]`);
     if (input && !input.value.trim()) ok = false;
   }
@@ -266,7 +273,7 @@ function collectPayload() {
   });
   const params = currentTool.parameters?.properties || {};
   for (const name of Object.keys(params)) {
-    if (/^input/i.test(name)) args[name] = '@uploads';
+    if (paramKind(params[name]) === 'file') args[name] = '@uploads';
   }
   return { files: selectedFiles, args };
 }
@@ -297,7 +304,36 @@ async function startRun() {
     return;
   }
   currentTask = r.taskId;
-  poll();
+  subscribeTaskEvents(currentTask);
+}
+
+/** 用 EventSource 订阅任务进度 SSE */
+function subscribeTaskEvents(taskId) {
+  const es = new EventSource(`/api/tools/${encodeURIComponent(currentTool.name)}/run/${taskId}/events`);
+  taskEventSource = es;
+
+  es.addEventListener('progress', (e) => {
+    const d = JSON.parse(e.data);
+    if (d.progress) $('#run-progress').textContent = d.progress;
+  });
+  es.addEventListener('done', (e) => {
+    const d = JSON.parse(e.data);
+    stopPolling();
+    showResult(d.result);
+  });
+  es.addEventListener('failed', (e) => {
+    const d = JSON.parse(e.data);
+    stopPolling();
+    showError(d.error || '执行失败');
+  });
+  es.addEventListener('cancelled', () => {
+    stopPolling();
+    showError('任务已取消');
+  });
+  es.onerror = () => {
+    // 连接异常（如浏览器重连失败）时兜底轮询一次状态
+    if (currentTask) poll();
+  };
 }
 
 async function poll() {
@@ -309,13 +345,13 @@ async function poll() {
     stopPolling();
     showError(r.error || (r.status === 'cancelled' ? '任务已取消' : '执行失败'));
   } else {
-    $('#run-progress').textContent = '处理中…';
-    pollTimer = setTimeout(poll, 1000);
+    $('#run-progress').textContent = r.progress || '处理中…';
+    setTimeout(poll, 1000);
   }
 }
 
 function stopPolling() {
-  if (pollTimer) { clearTimeout(pollTimer); pollTimer = null; }
+  if (taskEventSource) { taskEventSource.close(); taskEventSource = null; }
   $('#cancel-btn').classList.add('hidden');
   validate();
 }
@@ -368,5 +404,141 @@ $('#settings-save').onclick = async () => {
     alert('保存失败: ' + (r.error || '未知错误'));
   }
 };
+
+/* 聊天侧边栏 */
+const chatHistory = [];
+let chatting = false;
+
+$('#chat-toggle').onclick = () => {
+  const panel = $('#chat-panel');
+  const closed = panel.classList.toggle('closed');
+  $('#chat-toggle').textContent = closed ? '💬' : '✕';
+};
+$('#chat-send').onclick = sendChat;
+$('#chat-text').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendChat();
+  }
+});
+
+function addChatMsg(role, html) {
+  const msg = document.createElement('div');
+  msg.className = 'chat-msg ' + role;
+  msg.innerHTML = html;
+  const box = $('#chat-messages');
+  box.querySelector('.chat-empty')?.remove();
+  box.appendChild(msg);
+  box.scrollTop = box.scrollHeight;
+  return msg;
+}
+
+function scrollChat() {
+  $('#chat-messages').scrollTop = $('#chat-messages').scrollHeight;
+}
+
+async function sendChat() {
+  const text = $('#chat-text').value.trim();
+  if (!text || chatting) return;
+  $('#chat-text').value = '';
+  chatHistory.push({ role: 'user', content: text });
+  addChatMsg('user', escapeHtml(text));
+
+  const assistant = addChatMsg('assistant', '');
+  chatting = true;
+  $('#chat-send').disabled = true;
+  try {
+    const resp = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messages: chatHistory })
+    });
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      throw new Error(err.error || `请求失败（${resp.status}）`);
+    }
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder('utf-8');
+    let buf = '';
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      let idx;
+      while ((idx = buf.indexOf('\n\n')) !== -1) {
+        const event = buf.slice(0, idx);
+        buf = buf.slice(idx + 2);
+        handleChatEvent(event, assistant);
+      }
+    }
+    chatHistory.push({ role: 'assistant', content: assistant.textContent || '' });
+  } catch (e) {
+    assistant.innerHTML += `<div class="chat-tool err">✗ ${escapeHtml(e.message)}</div>`;
+  } finally {
+    chatting = false;
+    $('#chat-send').disabled = false;
+    scrollChat();
+  }
+}
+
+function handleChatEvent(rawEvent, assistant) {
+  let event = '';
+  let data = '';
+  for (const line of rawEvent.split('\n')) {
+    if (line.startsWith('event:')) event = line.slice(6).trim();
+    else if (line.startsWith('data:')) data = line.slice(5).trim();
+  }
+  if (!event || !data) return;
+  let d;
+  try { d = JSON.parse(data); } catch (_) { return; }
+
+  switch (event) {
+    case 'text':
+      assistant.innerHTML += escapeHtml(d.text);
+      scrollChat();
+      break;
+    case 'tool_call':
+      assistant.innerHTML += `<div class="chat-tool">🔧 正在调用工具 <b>${escapeHtml(d.name)}</b>…</div>`;
+      scrollChat();
+      break;
+    case 'tool_result':
+      if (d.ok) {
+        const summary = d.result && d.result.summary ? d.result.summary : '完成';
+        assistant.innerHTML += `<div class="chat-tool">✅ ${escapeHtml(summary)}</div>`;
+      } else {
+        assistant.innerHTML += `<div class="chat-tool err">❌ ${escapeHtml(d.error || '工具执行失败')}</div>`;
+      }
+      scrollChat();
+      break;
+    case 'draft_tool':
+      renderDraftCard(d, assistant);
+      scrollChat();
+      break;
+    case 'failed':
+      assistant.innerHTML += `<div class="chat-tool err">❌ ${escapeHtml(d.error || '出错了')}</div>`;
+      scrollChat();
+      break;
+  }
+}
+
+function renderDraftCard(draft, container) {
+  const card = document.createElement('div');
+  card.className = 'chat-draft';
+  card.innerHTML = `
+    <div class="chat-draft-title">✨ 已生成新工具草稿（启用后才会生效）</div>
+    <div class="chat-draft-name">${escapeHtml(draft.name)}</div>
+    <div class="chat-draft-desc">${escapeHtml(draft.description || '')}</div>
+    <button class="btn primary" data-draft-enable>启用</button>`;
+  card.querySelector('[data-draft-enable]').onclick = async () => {
+    const r = await api.enable(draft.name, true);
+    if (r.ok) {
+      card.innerHTML = '<div class="chat-draft-title" style="color:var(--green)">✓ 已启用，可在"工具列表"找到并调用</div>';
+      loadTools();
+    } else {
+      card.innerHTML = `<div class="chat-draft-title" style="color:var(--red)">✗ 启用失败：${escapeHtml(r.error || '未知错误')}</div>`;
+    }
+  };
+  container.appendChild(card);
+}
 
 loadTools();

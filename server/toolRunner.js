@@ -22,6 +22,7 @@ class ToolRunner {
     if (!tool) throw new Error(`工具不存在: ${name}`);
     const script = path.join(tool.dir, 'tool.ps1');
     const timeoutMs = opts.timeoutMs ?? this.timeoutMs;
+    const onProgress = typeof opts.onProgress === 'function' ? opts.onProgress : null;
 
     const argv = ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', script];
     for (const [key, value] of Object.entries(args || {})) {
@@ -36,6 +37,21 @@ class ToolRunner {
       let stdout = '';
       let stderr = '';
       let settled = false;
+
+      /** 实时解析 stdout：形如 {"progress":"..."} 的行作为进度回调 */
+      const emitProgressLines = (chunk) => {
+        if (!onProgress) return;
+        for (const line of chunk.split(/\r?\n/)) {
+          const t = line.trim();
+          if (!t) continue;
+          try {
+            const parsed = JSON.parse(t);
+            if (parsed && typeof parsed.progress === 'string' && parsed.progress) {
+              onProgress(parsed.progress);
+            }
+          } catch (_) { /* 非 JSON 行忽略 */ }
+        }
+      };
 
       const timer = setTimeout(() => {
         if (settled) return;
@@ -56,7 +72,10 @@ class ToolRunner {
         else opts.signal.addEventListener('abort', onAbort, { once: true });
       }
 
-      child.stdout.on('data', (d) => { stdout += d; });
+      child.stdout.on('data', (d) => {
+        stdout += d;
+        emitProgressLines(d.toString('utf8'));
+      });
       child.stderr.on('data', (d) => { stderr += d; });
       child.on('error', (err) => {
         if (settled) return;
