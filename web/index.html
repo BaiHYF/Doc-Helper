@@ -167,10 +167,8 @@
       box-shadow: -4px 0 12px rgba(0,0,0,.06);
     }
     .chat-panel.closed { transform: translateX(100%); }
-    .chat-toggle {
-      position: fixed; top: 12px; right: 14px;
-      z-index: 21;
-    }
+    .header-actions { display: flex; align-items: center; gap: 8px; }
+    .chat-toggle { z-index: 21; }
     .chat-header {
       display: flex; align-items: center; justify-content: space-between;
       padding: 14px 16px;
@@ -224,7 +222,10 @@
 <body>
   <header>
     <div class="brand">Doc-Helper <small>本地文档处理助手</small></div>
-    <button id="settings-btn" class="btn">设置</button>
+    <div class="header-actions">
+      <button id="chat-toggle" class="btn">💬 智能体</button>
+      <button id="settings-btn" class="btn">设置</button>
+    </div>
   </header>
 
   <div class="container">
@@ -269,10 +270,10 @@
   </div>
 
   <!-- 聊天侧边栏 -->
-  <button id="chat-toggle" class="btn chat-toggle">💬</button>
   <div id="chat-panel" class="chat-panel">
     <div class="chat-header">
       <span>智能体助手 <span class="sub">描述需求，自动调用或生成工具</span></span>
+      <button id="chat-close" class="btn">✕</button>
     </div>
     <div id="chat-messages" class="chat-messages">
       <div class="chat-empty">你好，我是 Doc-Helper 智能体。<br>你可以说：<br>· 把几个 Excel 合并成一个<br>· 帮我做一个能把多个 word 合并的工具<br><br>（需先在右上角"设置"配置大模型 API Key）</div>
@@ -283,6 +284,6 @@
     </div>
   </div>
 
-  <script src="/app.js"></script>
+  <script type="module" src="/app.js"></script>
 </body>
 </html>
