@@ -47,6 +47,26 @@ function renderDraftCard(draft, container) {
   container.appendChild(card);
 }
 
+function renderPluginDraftCard(draft, container) {
+  const card = document.createElement('div');
+  card.className = 'chat-draft';
+  card.innerHTML = `
+    <div class="chat-draft-title">✨ 已生成新插件草稿（启用后需刷新页面生效）</div>
+    <div class="chat-draft-name">${escapeHtml(draft.name || draft.file)}</div>
+    <div class="chat-draft-desc">${escapeHtml(draft.description || '')}</div>
+    <button class="btn primary" data-draft-enable>启用</button>`;
+  card.querySelector('[data-draft-enable]').onclick = async () => {
+    const r = await api.enablePlugin(draft.file, true);
+    if (r.ok) {
+      card.innerHTML = '<div class="chat-draft-title" style="color:var(--green)">✓ 已启用，刷新页面后生效</div>';
+      emit('plugins:refresh');
+    } else {
+      card.innerHTML = `<div class="chat-draft-title" style="color:var(--red)">✗ 启用失败：${escapeHtml(r.error || '未知错误')}</div>`;
+    }
+  };
+  container.appendChild(card);
+}
+
 function handleChatEvent(rawEvent, assistant) {
   let event = '';
   let data = '';
@@ -78,6 +98,10 @@ function handleChatEvent(rawEvent, assistant) {
       break;
     case 'draft_tool':
       renderDraftCard(d, assistant);
+      scrollChat();
+      break;
+    case 'draft_plugin':
+      renderPluginDraftCard(d, assistant);
       scrollChat();
       break;
     case 'failed':

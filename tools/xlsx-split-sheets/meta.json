@@ -1,0 +1,29 @@
+{
+  "name": "xlsx-split-sheets",
+  "version": "1.0.0",
+  "enabled": false,
+  "description": "将一个 Excel 工作簿按工作表拆分为多个独立 Excel 文件，每个 sheet 生成一个 xlsx，输出到指定目录",
+  "inputFiles": {
+    "min": 1,
+    "max": 1
+  },
+  "accept": [
+    ".xlsx"
+  ],
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "inputFile": {
+        "type": "file",
+        "description": "要拆分的 Excel 文件（.xlsx）"
+      },
+      "outputDir": {
+        "type": "string",
+        "description": "输出目录（留空则默认为输入文件所在目录）"
+      }
+    },
+    "required": [
+      "inputFile"
+    ]
+  }
+}

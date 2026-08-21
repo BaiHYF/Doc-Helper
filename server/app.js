@@ -2,6 +2,7 @@ const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
 const { ToolRegistry } = require('./toolRegistry.js');
+const { PluginRegistry } = require('./pluginRegistry.js');
 const { ToolRunner } = require('./toolRunner.js');
 const { FileStore } = require('./fileStore.js');
 const { Agent } = require('./agent.js');
@@ -27,6 +28,10 @@ class DocHelperApp {
     this.timeoutMs = options.timeoutMs || 120000;
 
     this.registry = new ToolRegistry(this.toolsRoot);
+    this.pluginRegistry = new PluginRegistry(
+      path.join(this.webRoot, 'plugins'),
+      path.join(this.root, 'server', 'runtime', 'plugins.json')
+    );
     this.runner = new ToolRunner({
       toolsRoot: this.toolsRoot,
       officecliPath: this.officecliPath,
@@ -55,6 +60,16 @@ class DocHelperApp {
     }
     if (method === 'GET' && pathname === '/api/tools') {
       return this.json(res, 200, { tools: this.registry.listTools() });
+    }
+    if (method === 'GET' && pathname === '/api/plugins') {
+      return this.json(res, 200, { plugins: this.pluginRegistry.listPlugins() });
+    }
+    if (method === 'POST' && /^\/api\/plugins\/[^/]+\/enable$/.test(pathname)) {
+      const file = pathname.split('/')[3];
+      return this.readJson(req).then((body) => {
+        const updated = this.pluginRegistry.setEnabled(file, Boolean(body.enabled));
+        this.json(res, 200, { ok: true, plugin: updated });
+      }).catch((e) => this.json(res, 400, { error: e.message }));
     }
     if (method === 'GET' && pathname === '/api/settings') {
       const c = config.load();
@@ -137,6 +152,8 @@ class DocHelperApp {
       };
       const agent = new Agent({
         registry: this.registry,
+        pluginRegistry: this.pluginRegistry,
+        pluginsRoot: path.join(this.webRoot, 'plugins'),
         runner: this.runner,
         llm: config.load().llm,
         toolsRoot: this.toolsRoot
@@ -146,7 +163,8 @@ class DocHelperApp {
         onText: (t) => send('text', { text: t }),
         onToolCall: (c) => send('tool_call', c),
         onToolResult: (r) => send('tool_result', { name: r.name, ...r.result }),
-        onDraftTool: (d) => send('draft_tool', d)
+        onDraftTool: (d) => send('draft_tool', d),
+        onDraftPlugin: (d) => send('draft_plugin', d)
       }).then(() => send('done', { ok: true }))
         .catch((e) => send('failed', { error: e.message }))
         .finally(() => { try { res.end(); } catch (_) { /* 已断开 */ } });
@@ -293,7 +311,10 @@ class DocHelperApp {
       return this.json(res, 404, { error: '页面不存在' });
     }
     const ext = path.extname(full).toLowerCase();
-    res.writeHead(200, { 'Content-Type': MIME[ext] || 'application/octet-stream' });
+    res.writeHead(200, {
+      'Content-Type': MIME[ext] || 'application/octet-stream',
+      'Cache-Control': 'no-cache'
+    });
     fs.createReadStream(full).pipe(res);
   }
 

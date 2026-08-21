@@ -31,6 +31,16 @@ export const api = {
   async tools() {
     return (await fetch('/api/tools')).json();
   },
+  async plugins() {
+    return (await fetch('/api/plugins')).json();
+  },
+  async enablePlugin(file, enabled) {
+    return (await fetch(`/api/plugins/${encodeURIComponent(file)}/enable`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled })
+    })).json();
+  },
   async enable(name, enabled) {
     return (await fetch(`/api/tools/${name}/enable`, {
       method: 'POST',
