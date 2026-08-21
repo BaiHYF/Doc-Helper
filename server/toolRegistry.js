@@ -56,6 +56,18 @@ class ToolRegistry {
     return this.listTools().find((t) => t.name === name);
   }
 
+  /** 删除工具目录（不可恢复）。 */
+  removeTool(name) {
+    if (typeof name !== 'string' || !/^[a-z0-9][a-z0-9-]*$/.test(name) || path.basename(name) !== name) {
+      throw new Error('工具名不合法：须为小写字母/数字/中划线');
+    }
+    const dir = path.join(this.toolsRoot, name);
+    if (!fs.existsSync(dir)) throw new Error(`工具不存在: ${name}`);
+    fs.rmSync(dir, { recursive: true, force: true });
+    this.reload();
+    return { name };
+  }
+
   /** 仅已启用工具，转 OpenAI function calling schema。 */
   buildFunctionSchemas() {
     return this.listTools()

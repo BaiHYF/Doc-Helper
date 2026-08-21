@@ -94,6 +94,9 @@ function handleChatEvent(rawEvent, assistant) {
       } else {
         assistant.innerHTML += `<div class="chat-tool err">❌ ${escapeHtml(d.error || '工具执行失败')}</div>`;
       }
+      // 插件/工具被删除或更新后，刷新对应列表
+      if (d.name === 'delete_plugin' || d.name === 'update_plugin') emit('plugins:refresh');
+      if (d.name === 'delete_tool') emit('tools:refresh');
       scrollChat();
       break;
     case 'draft_tool':

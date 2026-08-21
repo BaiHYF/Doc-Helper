@@ -1,11 +1,16 @@
 const fs = require('node:fs');
 const path = require('node:path');
+const cp = require('node:child_process');
 const { SYSTEM_PROMPT } = require('./prompts.js');
 
 const MAX_TOOL_ROUNDS = 6;
 const MAX_SCRIPT_BYTES = 300 * 1024;
 const CREATE_TOOL_FN = 'create_tool';
+const DELETE_TOOL_FN = 'delete_tool';
 const CREATE_PLUGIN_FN = 'create_plugin';
+const OFFICECLI_HELP_FN = 'officecli_help';
+const DELETE_PLUGIN_FN = 'delete_plugin';
+const UPDATE_PLUGIN_FN = 'update_plugin';
 
 /** 把已启用工具转成 OpenAI function calling schema（file 类型参数提示填绝对路径） */
 function toolToFunctionSchema(tool) {
@@ -33,13 +38,35 @@ function toolToFunctionSchema(tool) {
  * 可调用已启用的工具，也可调用内置 create_tool / create_plugin 生成草稿（默认不启用）。
  */
 class Agent {
-  constructor({ registry, runner, llm, toolsRoot, pluginRegistry, pluginsRoot }) {
+  constructor({ registry, runner, llm, toolsRoot, pluginRegistry, pluginsRoot, officecliPath }) {
     this.registry = registry;
     this.runner = runner;
     this.llm = llm || {};
     this.toolsRoot = toolsRoot;
     this.pluginRegistry = pluginRegistry;
     this.pluginsRoot = pluginsRoot;
+    this.officecliPath = officecliPath;
+  }
+
+  /** 查询内置 officecli 的使用说明（help <format>），供 agent 生成工具前确认语法。 */
+  runOfficecliHelp({ topic }) {
+    if (topic == null) topic = '';
+    if (typeof topic !== 'string' || (topic && !/^[a-z0-9-]{1,32}$/.test(topic))) {
+      throw new Error('帮助主题不合法：可为空，或 xlsx/docx/pptx 等格式名');
+    }
+    if (!this.officecliPath || !fs.existsSync(this.officecliPath)) {
+      throw new Error('officecli 未配置');
+    }
+    const args = ['help', ...(topic ? [topic] : [])];
+    let out = '';
+    try {
+      out = cp.execFileSync(this.officecliPath, args, {
+        encoding: 'utf8', timeout: 15000, maxBuffer: 1024 * 1024, windowsHide: true
+      });
+    } catch (e) {
+      out = (e.stdout || '') + (e.stderr ? `\n${e.stderr}` : '') || String(e.message || e);
+    }
+    return out.slice(0, 6000);
   }
 
   buildToolsSchema() {
@@ -68,6 +95,35 @@ class Agent {
     schemas.push({
       type: 'function',
       function: {
+        name: DELETE_TOOL_FN,
+        description: '删除一个现有文档处理工具（删除 tools/<name>/ 目录，不可恢复）。删除后该工具立即从工具列表消失，需用户确认。',
+        parameters: {
+          type: 'object',
+          properties: {
+            name: { type: 'string', description: '要删除的工具名，如 my-tool（小写字母/数字/中划线）' }
+          },
+          required: ['name']
+        }
+      }
+    });
+    schemas.push({
+      type: 'function',
+      function: {
+        name: OFFICECLI_HELP_FN,
+        description: '查询内置 officecli 的使用说明（schema 驱动的能力参考：支持格式、元素、属性、命令语法）。' +
+          '生成工具前必须先调用它确认命令/元素/属性存在，不要凭空发明。topic 传格式名（xlsx/docx/pptx），空字符串返回总览。',
+        parameters: {
+          type: 'object',
+          properties: {
+            topic: { type: 'string', description: '格式名：xlsx / docx / pptx；留空返回总览' }
+          },
+          required: []
+        }
+      }
+    });
+    schemas.push({
+      type: 'function',
+      function: {
         name: CREATE_PLUGIN_FN,
         description: '根据用户需求生成一个新的前端插件（ES Module 单文件，导出 { name, description, mount, unmount }），' +
           '用于扩展应用界面或功能。生成后默认为草稿，需要用户手动启用后生效。',
@@ -81,6 +137,36 @@ class Agent {
               'export default { name, description, mount(ctx), unmount() }' }
           },
           required: ['file', 'name', 'description', 'code']
+        }
+      }
+    });
+    schemas.push({
+      type: 'function',
+      function: {
+        name: DELETE_PLUGIN_FN,
+        description: '删除一个现有前端插件（不可恢复）。删除后该插件立即从应用消失，需用户确认。',
+        parameters: {
+          type: 'object',
+          properties: {
+            file: { type: 'string', description: '要删除的插件文件名，如 my-plugin.js' }
+          },
+          required: ['file']
+        }
+      }
+    });
+    schemas.push({
+      type: 'function',
+      function: {
+        name: UPDATE_PLUGIN_FN,
+        description: '修改一个现有前端插件：用新的完整源码覆盖该插件文件，保留启用状态。',
+        parameters: {
+          type: 'object',
+          properties: {
+            file: { type: 'string', description: '要修改的插件文件名，如 my-plugin.js' },
+            code: { type: 'string', description: '新的完整 ES Module 源码：import { api, $, on, emit, escapeHtml } from \'../core.js\'，' +
+              'export default { name, description, mount(ctx), unmount() }' }
+          },
+          required: ['file', 'code']
         }
       }
     });
@@ -140,6 +226,26 @@ class Agent {
       return { ok: true, draft: draft.file, note: '新插件已生成草稿，待用户启用' };
     }
 
+    if (name === DELETE_TOOL_FN) {
+      const r = this.deleteTool(args);
+      return { ok: true, deleted: r.name, note: `工具已删除: ${r.name}` };
+    }
+
+    if (name === OFFICECLI_HELP_FN) {
+      const help = this.runOfficecliHelp(args);
+      return { ok: true, help };
+    }
+
+    if (name === DELETE_PLUGIN_FN) {
+      const r = this.deletePlugin(args);
+      return { ok: true, deleted: r.file, note: `插件已删除: ${r.file}` };
+    }
+
+    if (name === UPDATE_PLUGIN_FN) {
+      const r = this.updatePlugin(args);
+      return { ok: true, file: r.file, note: `插件已更新: ${r.file}` };
+    }
+
     const tool = this.registry.getTool(name);
     if (!tool) return { ok: false, error: `工具不存在: ${name}` };
     if (!tool.enabled) return { ok: false, error: `工具未启用: ${name}` };
@@ -173,11 +279,17 @@ class Agent {
     return { name, description: meta.description, enabled: false };
   }
 
+  /** 删除现有工具（删除 tools/<name>/ 目录，不可恢复）。 */
+  deleteTool({ name }) {
+    if (typeof name !== 'string' || !/^[a-z0-9][a-z0-9-]*$/.test(name) || path.basename(name) !== name) {
+      throw new Error('工具名不合法：须为小写字母/数字/中划线');
+    }
+    return this.registry.removeTool(name);
+  }
+
   /** 校验并把 agent 生成的前端插件落盘为草稿（enabled=false） */
   createDraftPlugin({ file, name, description, code }) {
-    if (typeof file !== 'string' || !/^[a-z0-9][a-z0-9-]*\.js$/.test(file) || path.basename(file) !== file) {
-      throw new Error('文件名不合法：须为小写字母/数字/中划线 + .js（如 my-plugin.js）');
-    }
+    this.assertPluginFile(file);
     if (typeof code !== 'string' || !code.trim()) throw new Error('生成失败：缺少代码内容');
     if (Buffer.byteLength(code, 'utf8') > MAX_SCRIPT_BYTES) throw new Error('生成失败：代码内容过大');
     if (!/\bexport\s+default\b/.test(code)) throw new Error('生成失败：代码缺少 export default');
@@ -185,13 +297,33 @@ class Agent {
 
     const id = (typeof name === 'string' && name) || path.basename(file, '.js');
     const target = path.join(this.pluginsRoot, file);
-    if (!target.startsWith(path.resolve(this.pluginsRoot) + path.sep)) {
-      throw new Error('文件名不合法：不允许路径分隔符');
-    }
     fs.writeFileSync(target, code, 'utf8');
     this.pluginRegistry.reload();
     this.pluginRegistry.setEnabled(file, false);
     return { file, name: id, description: description || '', enabled: false };
+  }
+
+  /** 删除现有插件（文件 + 状态）。 */
+  deletePlugin({ file }) {
+    this.assertPluginFile(file);
+    return this.pluginRegistry.removePlugin(file);
+  }
+
+  /** 用新源码更新现有插件，保留启用状态。 */
+  updatePlugin({ file, code }) {
+    this.assertPluginFile(file);
+    if (typeof code !== 'string' || !code.trim()) throw new Error('修改失败：缺少代码内容');
+    if (Buffer.byteLength(code, 'utf8') > MAX_SCRIPT_BYTES) throw new Error('修改失败：代码内容过大');
+    if (!/\bexport\s+default\b/.test(code)) throw new Error('修改失败：代码缺少 export default');
+    if (!/\bmount\s*\(/.test(code)) throw new Error('修改失败：代码缺少 mount 方法');
+    return this.pluginRegistry.updatePlugin(file, code);
+  }
+
+  /** 校验插件文件名（小写字母/数字/中划线 + .js，无路径分隔符） */
+  assertPluginFile(file) {
+    if (typeof file !== 'string' || !/^[a-z0-9][a-z0-9-]*\.js$/.test(file) || path.basename(file) !== file) {
+      throw new Error('文件名不合法：须为小写字母/数字/中划线 + .js（如 my-plugin.js）');
+    }
   }
 
   /** 调用 LLM（流式），解析 SSE 增量文本与 tool_calls */

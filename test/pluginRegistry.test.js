@@ -108,3 +108,52 @@ export default { mount() {}, unmount() {} };`);
   assert.equal(p.name, 'no-name');
   assert.equal(p.description, '无名插件');
 });
+
+/* ---------- removePlugin / updatePlugin ---------- */
+
+test('removePlugin 删除文件并清理状态', () => {
+  const root = makeFixture();
+  const { reg, statePath } = makeRegistry(root);
+  reg.setEnabled('my-plugin.js', false);
+  assert.ok(fs.existsSync(path.join(root, 'my-plugin.js')));
+
+  const r = reg.removePlugin('my-plugin.js');
+  assert.equal(r.file, 'my-plugin.js');
+  assert.ok(!fs.existsSync(path.join(root, 'my-plugin.js')));
+  // 状态文件中的记录被清理
+  const saved = JSON.parse(fs.readFileSync(statePath, 'utf-8'));
+  assert.equal(saved['my-plugin.js'], undefined);
+  assert.equal(reg.getPlugin('my-plugin.js'), undefined);
+});
+
+test('removePlugin 拒绝不存在的插件 / 非法文件名', () => {
+  const root = makeFixture();
+  const { reg } = makeRegistry(root);
+  assert.throws(() => reg.removePlugin('nope.js'), /插件不存在/);
+  assert.throws(() => reg.removePlugin('a/../b.js'), /路径分隔符/);
+});
+
+test('updatePlugin 覆盖源码并保留启用状态', () => {
+  const root = makeFixture();
+  const { reg } = makeRegistry(root);
+  reg.setEnabled('my-plugin.js', true);
+
+  const updated = reg.updatePlugin('my-plugin.js', `/* 插件：修改后的示例插件 */
+export default {
+  name: 'my-plugin',
+  mount() {},
+  unmount() {}
+};`);
+  assert.equal(updated.file, 'my-plugin.js');
+  assert.equal(updated.description, '修改后的示例插件');
+  assert.equal(updated.enabled, true);
+  const source = fs.readFileSync(path.join(root, 'my-plugin.js'), 'utf-8');
+  assert.match(source, /修改后的示例插件/);
+});
+
+test('updatePlugin 拒绝非法源码（无 export default）/ 不存在的插件', () => {
+  const root = makeFixture();
+  const { reg } = makeRegistry(root);
+  assert.throws(() => reg.updatePlugin('settings.js', 'const x = 1;'), /export default/);
+  assert.throws(() => reg.updatePlugin('nope.js', 'export default { mount() {} };'), /插件不存在/);
+});

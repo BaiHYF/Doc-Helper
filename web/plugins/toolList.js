@@ -24,11 +24,22 @@ async function load() {
       <div class="tool-card-actions">
         <button class="btn primary" data-act="open">调用</button>
         <button class="btn" data-act="toggle">${t.enabled ? '停用' : '启用'}</button>
+        <button class="btn" data-act="delete">删除</button>
       </div>`;
     card.querySelector('[data-act="open"]').onclick = () => emit('tool:open', t);
     card.querySelector('[data-act="toggle"]').onclick = async () => {
       const r = await api.enable(t.name, !t.enabled);
       if (r.ok) await load();
+    };
+    card.querySelector('[data-act="delete"]').onclick = async () => {
+      if (!confirm(`确认删除工具「${t.name}」？删除后不可恢复。`)) return;
+      const r = await api.deleteTool(t.name);
+      if (r.ok) {
+        await load();
+        emit('tools:refresh');
+      } else {
+        alert(`删除失败：${r.error || '未知错误'}`);
+      }
     };
     list.appendChild(card);
   }

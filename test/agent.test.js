@@ -12,7 +12,13 @@ function makeAgent() {
   const toolsRoot = path.join(tmp, 'tools');
   fs.mkdirSync(toolsRoot, { recursive: true });
   const registry = new ToolRegistry(toolsRoot);
-  const agent = new Agent({ registry, runner: null, llm: { apiKey: 'x' }, toolsRoot });
+  const agent = new Agent({
+    registry,
+    runner: null,
+    llm: { apiKey: 'x' },
+    toolsRoot,
+    officecliPath: path.join(__dirname, '..', 'vendor', 'officecli', 'officecli.exe')
+  });
   return { agent, toolsRoot, registry };
 }
 
@@ -138,4 +144,117 @@ test('createDraftPlugin 拒绝空代码 / 过大 / 缺 export default / 缺 moun
   assert.throws(() => agent.createDraftPlugin({ file: 'a.js', code: 'const x=1;' }), /export default/);
   assert.throws(() => agent.createDraftPlugin({ file: 'a.js', code: 'export default { name: "a" };' }), /mount/);
   assert.throws(() => agent.createDraftPlugin({ file: 'a.js', code: 'x'.repeat(400 * 1024) }), /过大/);
+});
+
+/* ---------- delete_plugin / update_plugin ---------- */
+
+const PLUGIN_CODE = `/* 插件：示例插件 */
+import { $ } from '../core.js';
+export default {
+  name: 'my-plugin',
+  mount() {},
+  unmount() {}
+};`;
+
+test('buildToolsSchema 暴露 delete_plugin 与 update_plugin 工具', () => {
+  const { agent } = makePluginAgent();
+  const names = agent.buildToolsSchema().map((s) => s.function.name);
+  assert.ok(names.includes('delete_plugin'));
+  assert.ok(names.includes('update_plugin'));
+});
+
+test('deletePlugin 删除文件并清理状态', () => {
+  const { agent, pluginsRoot, pluginRegistry } = makePluginAgent();
+  agent.createDraftPlugin({ file: 'my-plugin.js', name: 'my-plugin', description: '示例', code: PLUGIN_CODE });
+  assert.ok(fs.existsSync(path.join(pluginsRoot, 'my-plugin.js')));
+
+  const r = agent.deletePlugin({ file: 'my-plugin.js' });
+  assert.equal(r.file, 'my-plugin.js');
+  assert.ok(!fs.existsSync(path.join(pluginsRoot, 'my-plugin.js')));
+  assert.equal(pluginRegistry.getPlugin('my-plugin.js'), undefined);
+});
+
+test('deletePlugin 拒绝非法文件名（路径穿越/大小写/非 js）', () => {
+  const { agent } = makePluginAgent();
+  assert.throws(() => agent.deletePlugin({ file: 'a/../b.js' }), /文件名不合法/);
+  assert.throws(() => agent.deletePlugin({ file: 'No.js' }), /文件名不合法/);
+  assert.throws(() => agent.deletePlugin({ file: 'noext' }), /文件名不合法/);
+});
+
+test('updatePlugin 覆盖源码并保留启用状态', () => {
+  const { agent, pluginsRoot, pluginRegistry } = makePluginAgent();
+  agent.createDraftPlugin({ file: 'my-plugin.js', name: 'my-plugin', description: '示例', code: PLUGIN_CODE });
+  pluginRegistry.setEnabled('my-plugin.js', true);
+
+  const updated = agent.updatePlugin({ file: 'my-plugin.js', code: PLUGIN_CODE.replace('示例插件', '修改后的插件') });
+  assert.equal(updated.file, 'my-plugin.js');
+  assert.equal(updated.description, '修改后的插件');
+  assert.equal(updated.enabled, true);
+  const source = fs.readFileSync(path.join(pluginsRoot, 'my-plugin.js'), 'utf-8');
+  assert.match(source, /修改后的插件/);
+});
+
+test('updatePlugin 拒绝不存在的插件 / 非法代码 / 非法文件名', () => {
+  const { agent } = makePluginAgent();
+  assert.throws(() => agent.updatePlugin({ file: 'nope.js', code: PLUGIN_CODE }), /插件不存在/);
+  assert.throws(() => agent.updatePlugin({ file: 'nope.js', code: 'const x = 1;' }), /export default/);
+  assert.throws(() => agent.updatePlugin({ file: 'nope.js', code: 'export default { name: "a" };' }), /mount/);
+  assert.throws(() => agent.updatePlugin({ file: 'a/../b.js', code: PLUGIN_CODE }), /文件名不合法/);
+});
+
+/* ---------- delete_tool ---------- */
+
+test('buildToolsSchema 暴露 delete_tool 工具', () => {
+  const { agent } = makeAgent();
+  const names = agent.buildToolsSchema().map((s) => s.function.name);
+  assert.ok(names.includes('delete_tool'));
+});
+
+test('deleteTool 删除工具目录并从清单移除', () => {
+  const { agent, toolsRoot, registry } = makeAgent();
+  fs.mkdirSync(path.join(toolsRoot, 'my-tool'), { recursive: true });
+  fs.writeFileSync(path.join(toolsRoot, 'my-tool', 'meta.json'), JSON.stringify({
+    name: 'my-tool', description: '待删除工具', enabled: true
+  }));
+  fs.writeFileSync(path.join(toolsRoot, 'my-tool', 'tool.ps1'), '# x');
+  registry.reload();
+  assert.ok(registry.getTool('my-tool'));
+
+  const r = agent.deleteTool({ name: 'my-tool' });
+  assert.equal(r.name, 'my-tool');
+  assert.ok(!fs.existsSync(path.join(toolsRoot, 'my-tool')));
+  assert.equal(registry.getTool('my-tool'), undefined);
+});
+
+test('deleteTool 拒绝非法名称（大小写/路径分隔符）', () => {
+  const { agent } = makeAgent();
+  assert.throws(() => agent.deleteTool({ name: 'My Tool' }), /工具名不合法/);
+  assert.throws(() => agent.deleteTool({ name: 'a/../b' }), /工具名不合法/);
+});
+
+/* ---------- officecli_help ---------- */
+
+test('buildToolsSchema 暴露 officecli_help 函数', () => {
+  const { agent } = makeAgent();
+  const names = agent.buildToolsSchema().map((s) => s.function.name);
+  assert.ok(names.includes('officecli_help'));
+});
+
+test('runOfficecliHelp 返回 officecli 使用说明', () => {
+  const { agent } = makeAgent();
+  const help = agent.runOfficecliHelp({ topic: 'xlsx' });
+  assert.ok(help.includes('xlsx'));
+  assert.ok(help.length > 100);
+});
+
+test('runOfficecliHelp 拒绝非法主题', () => {
+  const { agent } = makeAgent();
+  assert.throws(() => agent.runOfficecliHelp({ topic: 'a; rm -rf' }), /主题不合法/);
+  assert.throws(() => agent.runOfficecliHelp({ topic: '../x' }), /主题不合法/);
+});
+
+test('runOfficecliHelp 未配置 officecli 时拒绝', () => {
+  const { agent } = makeAgent();
+  agent.officecliPath = null;
+  assert.throws(() => agent.runOfficecliHelp({}), /officecli 未配置/);
 });

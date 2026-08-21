@@ -41,11 +41,32 @@ export const api = {
       body: JSON.stringify({ enabled })
     })).json();
   },
+  async deletePlugin(file) {
+    return (await fetch(`/api/plugins/${encodeURIComponent(file)}/delete`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({})
+    })).json();
+  },
+  async updatePlugin(file, code) {
+    return (await fetch(`/api/plugins/${encodeURIComponent(file)}/update`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code })
+    })).json();
+  },
   async enable(name, enabled) {
     return (await fetch(`/api/tools/${name}/enable`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ enabled })
+    })).json();
+  },
+  async deleteTool(name) {
+    return (await fetch(`/api/tools/${encodeURIComponent(name)}/delete`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({})
     })).json();
   },
   async run(name, payload) {

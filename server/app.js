@@ -71,6 +71,20 @@ class DocHelperApp {
         this.json(res, 200, { ok: true, plugin: updated });
       }).catch((e) => this.json(res, 400, { error: e.message }));
     }
+    if (method === 'POST' && /^\/api\/plugins\/[^/]+\/delete$/.test(pathname)) {
+      const file = pathname.split('/')[3];
+      return this.readJson(req).then(() => {
+        this.pluginRegistry.removePlugin(file);
+        this.json(res, 200, { ok: true });
+      }).catch((e) => this.json(res, 400, { error: e.message }));
+    }
+    if (method === 'POST' && /^\/api\/plugins\/[^/]+\/update$/.test(pathname)) {
+      const file = pathname.split('/')[3];
+      return this.readJson(req).then((body) => {
+        const updated = this.pluginRegistry.updatePlugin(file, body.code);
+        this.json(res, 200, { ok: true, plugin: updated });
+      }).catch((e) => this.json(res, 400, { error: e.message }));
+    }
     if (method === 'GET' && pathname === '/api/settings') {
       const c = config.load();
       return this.json(res, 200, {
@@ -99,6 +113,13 @@ class DocHelperApp {
         fs.writeFileSync(metaPath, JSON.stringify(meta, null, 2));
         this.registry.reload();
         this.json(res, 200, { ok: true, enabled: meta.enabled });
+      }).catch((e) => this.json(res, 400, { error: e.message }));
+    }
+    if (method === 'POST' && /^\/api\/tools\/[^/]+\/delete$/.test(pathname)) {
+      const name = pathname.split('/')[3];
+      return this.readJson(req).then(() => {
+        this.registry.removeTool(name);
+        this.json(res, 200, { ok: true });
       }).catch((e) => this.json(res, 400, { error: e.message }));
     }
     if (method === 'POST' && /^\/api\/tools\/[^/]+\/run$/.test(pathname)) {
@@ -156,7 +177,8 @@ class DocHelperApp {
         pluginsRoot: path.join(this.webRoot, 'plugins'),
         runner: this.runner,
         llm: config.load().llm,
-        toolsRoot: this.toolsRoot
+        toolsRoot: this.toolsRoot,
+        officecliPath: this.officecliPath
       });
       agent.chat({
         messages,

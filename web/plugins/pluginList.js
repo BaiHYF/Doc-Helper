@@ -1,5 +1,5 @@
 /* 插件：插件管理（列出所有前端插件，可启用/停用草稿） */
-import { api, $, escapeHtml, on, off } from '../core.js';
+import { api, $, escapeHtml, on, off, emit } from '../core.js';
 
 const SELF_FILE = 'pluginList.js';
 
@@ -24,10 +24,21 @@ async function load() {
       <p class="tool-desc">${escapeHtml(p.description || '（无描述）')}<br><small>${escapeHtml(p.file)}</small></p>
       <div class="tool-card-actions">
         <button class="btn" data-act="toggle" ${p.file === SELF_FILE ? 'disabled' : ''}>${p.enabled ? '停用' : '启用'}</button>
+        <button class="btn" data-act="delete" ${p.file === SELF_FILE ? 'disabled' : ''}>删除</button>
       </div>`;
     card.querySelector('[data-act="toggle"]').onclick = async () => {
       const r = await api.enablePlugin(p.file, !p.enabled);
       if (r.ok) await load();
+    };
+    card.querySelector('[data-act="delete"]').onclick = async () => {
+      if (!confirm(`确认删除插件「${p.name}」（${p.file}）？删除后不可恢复。`)) return;
+      const r = await api.deletePlugin(p.file);
+      if (r.ok) {
+        await load();
+        emit('plugins:refresh');
+      } else {
+        alert(`删除失败：${r.error || '未知错误'}`);
+      }
     };
     list.appendChild(card);
   }

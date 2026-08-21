@@ -82,3 +82,22 @@ test('buildFunctionSchemas 只包含已启用工具，输出 OpenAI function 格
     inputDir: { type: 'string' }
   });
 });
+
+test('removeTool 删除工具目录并从清单移除', () => {
+  const root = makeFixture();
+  const reg = new ToolRegistry(root);
+  assert.ok(fs.existsSync(path.join(root, 'alpha')));
+
+  const r = reg.removeTool('alpha');
+  assert.equal(r.name, 'alpha');
+  assert.ok(!fs.existsSync(path.join(root, 'alpha')));
+  assert.equal(reg.getTool('alpha'), undefined);
+  assert.equal(reg.listTools().length, 1);
+});
+
+test('removeTool 拒绝不存在的工具 / 非法名称', () => {
+  const root = makeFixture();
+  const reg = new ToolRegistry(root);
+  assert.throws(() => reg.removeTool('nope'), /工具不存在/);
+  assert.throws(() => reg.removeTool('a/../b'), /工具名不合法/);
+});

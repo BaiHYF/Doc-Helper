@@ -81,6 +81,43 @@ class PluginRegistry {
     this.reload();
     return { ...this.getPlugin(file), enabled: Boolean(enabled) };
   }
+
+  /** 删除插件文件并清理状态（不可恢复）。 */
+  removePlugin(file) {
+    this._assertSafeFile(file);
+    const target = path.join(this.pluginsRoot, file);
+    if (!fs.existsSync(target)) throw new Error(`插件不存在: ${file}`);
+    fs.unlinkSync(target);
+    const state = this._loadState();
+    delete state[file];
+    this._saveState(state);
+    this.reload();
+    return { file };
+  }
+
+  /** 用新源码覆盖插件文件，保留启用状态。源码不合法时拒绝写入。 */
+  updatePlugin(file, source) {
+    this._assertSafeFile(file);
+    const target = path.join(this.pluginsRoot, file);
+    if (!fs.existsSync(target)) throw new Error(`插件不存在: ${file}`);
+    if (!/\bexport\s+default\b/.test(source)) throw new Error('代码无效：缺少 export default');
+    fs.writeFileSync(target, source, 'utf8');
+    this.reload();
+    const p = this.getPlugin(file);
+    if (!p) throw new Error('代码无效：无法解析插件元信息');
+    return p;
+  }
+
+  /** 校验文件名安全（仅允许 pluginsRoot 内的单层 js 文件） */
+  _assertSafeFile(file) {
+    if (typeof file !== 'string' || path.basename(file) !== file || !file.endsWith('.js')) {
+      throw new Error('文件名不合法：不允许路径分隔符');
+    }
+    const target = path.resolve(this.pluginsRoot, file);
+    if (!target.startsWith(path.resolve(this.pluginsRoot) + path.sep)) {
+      throw new Error('文件名不合法：不允许路径分隔符');
+    }
+  }
 }
 
 module.exports = { PluginRegistry };
