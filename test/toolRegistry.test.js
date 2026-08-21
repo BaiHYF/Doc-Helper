@@ -15,6 +15,8 @@ function makeFixture() {
   writeTool('alpha', {
     name: 'alpha', version: '1.0.0', enabled: true,
     description: 'alpha tool',
+    inputFiles: { min: 2, max: null },
+    accept: ['.XLSX', 'xls', 'bad-ext!'],
     parameters: {
       type: 'object',
       properties: { inputDir: { type: 'string' } },
@@ -41,6 +43,25 @@ test('listTools 扫描目录并返回工具清单（含草稿标记）', () => {
   assert.equal(alpha.description, 'alpha tool');
   const beta = tools.find((t) => t.name === 'beta');
   assert.equal(beta.enabled, false);
+  // 未声明的 inputFiles 归一化为不限数量
+  assert.deepEqual(beta.inputFiles, { min: 0, max: null });
+  // 未声明的 accept 归一化为空数组（不限格式）
+  assert.deepEqual(beta.accept, []);
+  // 显式声明 min/max 被正确读取
+  assert.deepEqual(alpha.inputFiles, { min: 2, max: null });
+  // accept 归一化：去前导点、转小写、过滤非法字符
+  assert.deepEqual(alpha.accept, ['xlsx', 'xls']);
+});
+
+test('inputFiles 非法值：min>max 时 max 纠正为 min', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'dh-tools-'));
+  fs.mkdirSync(path.join(root, 'bad'));
+  fs.writeFileSync(path.join(root, 'bad', 'meta.json'), JSON.stringify({
+    name: 'bad', description: 'd', inputFiles: { min: 5, max: 2 }
+  }));
+  fs.writeFileSync(path.join(root, 'bad', 'tool.ps1'), '# x');
+  const reg = new ToolRegistry(root);
+  assert.deepEqual(reg.getTool('bad').inputFiles, { min: 5, max: 5 });
 });
 
 test('getTool 返回指定工具，缺失返回 undefined', () => {

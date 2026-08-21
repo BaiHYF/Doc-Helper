@@ -3,6 +3,11 @@
   "version": "1.0.0",
   "enabled": true,
   "description": "把 inputDir 下多个 xlsx 合并为一个工作簿，每个源文件对应一个工作表（sheet 名 = 源文件名）",
+  "inputFiles": {
+    "min": 2,
+    "max": null
+  },
+  "accept": [".xlsx"],
   "parameters": {
     "type": "object",
     "properties": {

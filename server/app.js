@@ -117,8 +117,27 @@ class DocHelperApp {
     if (!tool) return this.json(res, 404, { error: `工具不存在: ${name}` });
     if (!tool.enabled) return this.json(res, 400, { error: `工具未启用: ${name}` });
     return this.readJson(req).then((body) => {
+      const files = body.files || [];
+      const min = tool.inputFiles?.min ?? 0;
+      const max = tool.inputFiles?.max ?? null;
+      if (files.length < min) {
+        return this.json(res, 400, { error: `至少需要 ${min} 个输入文件，实际收到 ${files.length} 个` });
+      }
+      if (max !== null && files.length > max) {
+        return this.json(res, 400, { error: `最多允许 ${max} 个输入文件，实际收到 ${files.length} 个` });
+      }
+      const accept = tool.accept || [];
+      if (accept.length) {
+        const bad = files.find((f) => {
+          const ext = String(f.name).toLowerCase().split('.').pop();
+          return !accept.includes(ext);
+        });
+        if (bad) {
+          return this.json(res, 400, { error: `不支持的文件格式: ${bad.name}（仅支持 ${accept.map((e) => '.' + e).join('、')}）` });
+        }
+      }
       const task = this.fileStore.createTask();
-      this.fileStore.saveFiles(task, body.files || []);
+      this.fileStore.saveFiles(task, files);
       const args = this.fileStore.resolveArgs(body.args || {}, task.uploadsDir, task.resultsDir);
       const ac = new AbortController();
       const record = { id: task.id, name, args, status: 'running', result: null, error: null, ac };

@@ -42,6 +42,8 @@ class ToolRegistry {
         enabled: meta.enabled !== false,
         description: meta.description,
         parameters: meta.parameters || { type: 'object', properties: {}, required: [] },
+        inputFiles: normalizeInputFiles(meta.inputFiles),
+        accept: normalizeAccept(meta.accept),
         dir: path.join(this.toolsRoot, entry.name)
       });
     }
@@ -70,3 +72,22 @@ class ToolRegistry {
 }
 
 module.exports = { ToolRegistry };
+
+/** 归一化输入文件数量约束：min 默认 0，max 为 null 或未声明表示不限。 */
+function normalizeInputFiles(inputFiles) {
+  const src = inputFiles && typeof inputFiles === 'object' ? inputFiles : {};
+  const min = Number.isInteger(src.min) && src.min >= 0 ? src.min : 0;
+  const max = Number.isInteger(src.max) && src.max >= 0 ? src.max : null;
+  if (max !== null && min > max) {
+    return { min, max: min };
+  }
+  return { min, max };
+}
+
+/** 归一化允许的文件扩展名：小写、去前导点；空数组表示不限。 */
+function normalizeAccept(accept) {
+  if (!Array.isArray(accept)) return [];
+  return accept
+    .map((e) => String(e).toLowerCase().replace(/^\./, ''))
+    .filter((e) => /^[a-z0-9]+$/.test(e));
+}

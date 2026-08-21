@@ -41,6 +41,7 @@ const api = {
 let currentTool = null;
 let currentTask = null;
 let pollTimer = null;
+let selectedFiles = [];
 
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, (c) => ({
@@ -96,32 +97,57 @@ function showToolCall(tool) {
   currentTask = null;
 
   const params = tool.parameters?.properties || {};
+  const required = tool.parameters?.required || [];
+  const hasInput = Object.keys(params).some((n) => /^input/i.test(n));
+
+  // 统一文件拖放区（工具含 input 参数时显示）
+  if (hasInput) {
+    const zone = document.createElement('div');
+    zone.className = 'drop-zone';
+    const acceptStr = acceptAttr(tool.accept);
+    zone.innerHTML = `
+      <input type="file" id="drop-input" multiple class="hidden"${acceptStr ? ` accept="${acceptStr}"` : ''}>
+      <div class="drop-hint"><strong>拖拽文件到这里</strong>，或点击选择文件（${inputRequirementText(tool.inputFiles)}${acceptLabel(tool.accept)}）</div>
+      <div class="drop-count" id="drop-count"></div>
+      <div class="drop-error" id="drop-error"></div>
+      <div class="drop-list" id="drop-list"></div>`;
+    $('#param-fields').appendChild(zone);
+
+    const input = zone.querySelector('#drop-input');
+    zone.addEventListener('click', (e) => {
+      if (e.target !== input) input.click();
+    });
+    input.addEventListener('change', () => {
+      addFiles(input.files);
+      input.value = '';
+    });
+    zone.addEventListener('dragover', (e) => { e.preventDefault(); zone.classList.add('drag-over'); });
+    zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+    zone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      zone.classList.remove('drag-over');
+      addFiles(e.dataTransfer.files);
+    });
+  }
+
+  // 非 input 参数：output 与其它文本参数
   for (const [name, prop] of Object.entries(params)) {
-    const isInput = /^input/i.test(name);
+    if (/^input/i.test(name)) continue;
+    const isRequired = required.includes(name);
     const isOutput = /^output/i.test(name);
     const field = document.createElement('div');
     field.className = 'param';
-    const required = (tool.parameters.required || []).includes(name);
     field.innerHTML = `
-      <label>${escapeHtml(name)}<span class="req">${required ? ' *' : ''}</span></label>
+      <label>${escapeHtml(name)}<span class="req">${isRequired ? ' *' : ''}</span></label>
       <div class="hint">${escapeHtml(prop.description || '')}</div>`;
-    if (isInput) {
-      field.innerHTML += `
-        <input type="file" multiple class="file-input" data-param="${name}">
-        <div class="file-names"></div>`;
-      const input = field.querySelector('.file-input');
-      input.onchange = () => {
-        field.querySelector('.file-names').textContent =
-          Array.from(input.files).map((f) => f.name).join('、');
-      };
-    } else if (isOutput) {
-      const def = name.toLowerCase().endsWith('.xlsx') || name.includes('xlsx')
-        ? '@results/out.xlsx'
-        : '@results/out.docx';
+    if (isOutput) {
+      const ext = defaultOutputExt(tool.accept);
+      const def = `@results/out${ext ? '.' + ext : '.docx'}`;
       field.innerHTML += `<input type="text" class="text-input" data-param="${name}" value="${def}">`;
     } else {
       field.innerHTML += `<input type="text" class="text-input" data-param="${name}">`;
     }
+    field.querySelector('.text-input').addEventListener('input', validate);
     $('#param-fields').appendChild(field);
   }
 
@@ -129,25 +155,120 @@ function showToolCall(tool) {
   $('#cancel-btn').onclick = async () => {
     if (currentTask) await api.cancel(currentTool.name, currentTask);
   };
+
+  validate();
+}
+
+function addFiles(fileList) {
+  const accept = currentTool?.accept || [];
+  let rejected = 0;
+  for (const f of Array.from(fileList)) {
+    if (selectedFiles.some((x) => x.name === f.name && x.size === f.size)) continue;
+    if (accept.length && !isAccepted(f.name, accept)) { rejected++; continue; }
+    selectedFiles.push(f);
+  }
+  renderDropList();
+  validate();
+  if (rejected > 0) {
+    showDropError(`已忽略 ${rejected} 个文件：仅支持 ${accept.map((e) => '.' + e).join('、')} 格式`);
+  }
+}
+
+function isAccepted(fileName, accept) {
+  const ext = fileName.toLowerCase().split('.').pop();
+  return accept.includes(ext);
+}
+
+function acceptAttr(accept) {
+  if (!accept?.length) return '';
+  return accept.map((e) => '.' + e).join(',');
+}
+
+function acceptLabel(accept) {
+  if (!accept?.length) return '';
+  return '，支持 ' + accept.map((e) => '.' + e).join('、');
+}
+
+/** 按工具允许的输入格式推断输出扩展名（取第一个）。 */
+function defaultOutputExt(accept) {
+  if (!accept?.length) return '';
+  return accept[0];
+}
+
+let dropErrorTimer = null;
+function showDropError(msg) {
+  const el = $('#drop-error');
+  if (!el) return;
+  el.textContent = msg;
+  clearTimeout(dropErrorTimer);
+  dropErrorTimer = setTimeout(() => { el.textContent = ''; }, 4000);
+}
+
+function renderDropList() {
+  const list = $('#drop-list');
+  if (!list) return;
+  const count = $('#drop-count');
+  if (count) count.textContent = selectedFiles.length ? `已选 ${selectedFiles.length} 个文件` : '';
+  list.innerHTML = '';
+  selectedFiles.forEach((f, i) => {
+    const item = document.createElement('div');
+    item.className = 'drop-item';
+    item.innerHTML = `<span class="fname">${escapeHtml(f.name)}</span><button class="frm" title="移除">×</button>`;
+    item.querySelector('.frm').onclick = (e) => {
+      e.stopPropagation();
+      selectedFiles.splice(i, 1);
+      renderDropList();
+      validate();
+    };
+    list.appendChild(item);
+  });
+}
+
+function inputRequirementText(inputFiles) {
+  const min = inputFiles?.min ?? 0;
+  const max = inputFiles?.max ?? null;
+  if (max === null) {
+    if (min > 1) return `至少 ${min} 个文件`;
+    if (min === 1) return '1 个或多个文件';
+    return '任意数量';
+  }
+  if (min === max) return `恰好 ${min} 个文件`;
+  if (min === 0) return `最多 ${max} 个文件`;
+  return `${min}～${max} 个文件`;
+}
+
+function validate() {
+  const tool = currentTool;
+  if (!tool) return;
+  const params = tool.parameters?.properties || {};
+  const required = tool.parameters?.required || [];
+  const hasInput = Object.keys(params).some((n) => /^input/i.test(n));
+
+  let ok = true;
+  if (hasInput) {
+    const min = tool.inputFiles?.min ?? 0;
+    const max = tool.inputFiles?.max ?? null;
+    if (selectedFiles.length < min) ok = false;
+    if (max !== null && selectedFiles.length > max) ok = false;
+  }
+  for (const name of required) {
+    if (/^input/i.test(name)) continue;
+    const input = document.querySelector(`.text-input[data-param="${name}"]`);
+    if (input && !input.value.trim()) ok = false;
+  }
+  $('#run-btn').disabled = !ok;
 }
 
 function collectPayload() {
-  const files = [];
   const args = {};
-  document.querySelectorAll('.param').forEach((paramEl) => {
-    const input = paramEl.querySelector('.file-input');
-    const text = paramEl.querySelector('.text-input');
-    const name = (input || text).dataset.param;
-    if (input) {
-      Array.from(input.files).forEach((f) => {
-        if (!files.some((x) => x.file.name === f.name)) files.push({ file: f });
-      });
-      args[name] = '@uploads';
-    } else if (text) {
-      args[name] = text.value.trim();
-    }
+  document.querySelectorAll('.text-input[data-param]').forEach((text) => {
+    args[text.dataset.param] = text.value.trim();
   });
-  return { files, args };
+  const params = currentTool.parameters?.properties || {};
+  for (const name of Object.keys(params)) {
+    if (/^input/i.test(name)) args[name] = '@uploads';
+  }
+  return { files: selectedFiles, args };
 }
 
 function readAsBase64(file) {
@@ -163,7 +284,7 @@ async function startRun() {
   const { files: fileRefs, args } = collectPayload();
   const files = [];
   for (const ref of fileRefs) {
-    files.push({ name: ref.file.name, base64: await readAsBase64(ref.file) });
+    files.push({ name: ref.name, base64: await readAsBase64(ref) });
   }
   $('#run-progress').classList.remove('hidden');
   $('#run-progress').textContent = '正在启动…';
@@ -195,8 +316,8 @@ async function poll() {
 
 function stopPolling() {
   if (pollTimer) { clearTimeout(pollTimer); pollTimer = null; }
-  $('#run-btn').disabled = false;
   $('#cancel-btn').classList.add('hidden');
+  validate();
 }
 
 function showResult(result) {
