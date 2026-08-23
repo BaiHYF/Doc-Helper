@@ -2,6 +2,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const cp = require('node:child_process');
 const { SYSTEM_PROMPT } = require('./prompts.js');
+const { getOfficecliRef } = require('./officecliRef.js');
 
 const MAX_TOOL_ROUNDS = 6;
 const MAX_SCRIPT_BYTES = 300 * 1024;
@@ -48,16 +49,23 @@ class Agent {
     this.officecliPath = officecliPath;
   }
 
-  /** 查询内置 officecli 的使用说明（help <format>），供 agent 生成工具前确认语法。 */
+  /**
+   * 查询内置 officecli 的使用说明（help <format> [verb|element] [element]），
+   * 供 agent 生成工具前确认语法。topic 可为空 / all / <格式> [动词|元素] [元素]。
+   * 非法输入返回用法提示（智能体可照此重试），不抛错中断。
+   */
   runOfficecliHelp({ topic }) {
-    if (topic == null) topic = '';
-    if (typeof topic !== 'string' || (topic && !/^[a-z0-9-]{1,32}$/.test(topic))) {
-      throw new Error('帮助主题不合法：可为空，或 xlsx/docx/pptx 等格式名');
+    const raw = topic == null ? '' : (typeof topic === 'string' ? topic : Array.isArray(topic) ? topic.join(' ') : JSON.stringify(topic));
+    const tokens = String(raw).trim().toLowerCase().split(/\s+/).filter(Boolean);
+    const valid = tokens.length <= 3 && tokens.every((t) => /^[a-z0-9-]{1,32}$/.test(t));
+    if (!valid) {
+      return 'officecli_help 用法提示：topic 留空=总览；all=全量元素/属性 dump；或 <格式> [动词|元素] [元素]，' +
+        `如 "xlsx"、"xlsx add cell"、"docx paragraph"。收到非法 topic: ${raw ? JSON.stringify(raw) : '(空)'}`;
     }
     if (!this.officecliPath || !fs.existsSync(this.officecliPath)) {
       throw new Error('officecli 未配置');
     }
-    const args = ['help', ...(topic ? [topic] : [])];
+    const args = ['help', ...tokens];
     let out = '';
     try {
       out = cp.execFileSync(this.officecliPath, args, {
@@ -77,15 +85,15 @@ class Agent {
       type: 'function',
       function: {
         name: CREATE_TOOL_FN,
-        description: '根据用户需求生成一个新的文档处理工具（PowerShell 脚本 tool.ps1 + 元数据 meta.json）。' +
+        description: '根据用户需求生成一个新的文档处理工具（Node 脚本 tool.js + 元数据 meta.json）。' +
           '生成的工具默认为草稿状态，需要用户手动启用后才能被调用。',
         parameters: {
           type: 'object',
           properties: {
             name: { type: 'string', description: '工具名：小写字母/数字/中划线，如 my-tool' },
             description: { type: 'string', description: '工具用途说明（中文）' },
-            script: { type: 'string', description: 'PowerShell 脚本内容（tool.ps1），通过 $env:OFFICECLI 调用 officecli，' +
-              'stdout 最终输出一个 JSON：{"ok":true,"outputFiles":[...],"summary":"..."}，失败退出码非 0' },
+            script: { type: 'string', description: 'Node 脚本内容（tool.js）：module.exports = async (ctx) => {...}，' +
+              '通过 ctx.run/ctx.batch 调用 officecli，返回 {outputFiles:[...],summary:"..."}，失败 throw 中文错误' },
             metaJson: { type: 'object', description: '工具元数据（meta.json）：含 name/description/inputFiles/accept/parameters' }
           },
           required: ['name', 'description', 'script', 'metaJson']
@@ -111,11 +119,12 @@ class Agent {
       function: {
         name: OFFICECLI_HELP_FN,
         description: '查询内置 officecli 的使用说明（schema 驱动的能力参考：支持格式、元素、属性、命令语法）。' +
-          '生成工具前必须先调用它确认命令/元素/属性存在，不要凭空发明。topic 传格式名（xlsx/docx/pptx），空字符串返回总览。',
+          '生成工具前必须先调用它确认命令/元素/属性存在，不要凭空发明。' +
+          'topic 语法：留空=总览；all=全量元素/属性 dump；或 <格式> [动词或元素] [元素]，如 "xlsx"、"xlsx add cell"。',
         parameters: {
           type: 'object',
           properties: {
-            topic: { type: 'string', description: '格式名：xlsx / docx / pptx；留空返回总览' }
+            topic: { type: 'string', description: '查询词（可含空格分隔的多词）：如 "xlsx"、"xlsx add cell"、"all"；留空返回总览' }
           },
           required: []
         }
@@ -182,8 +191,9 @@ class Agent {
     const { baseUrl, apiKey, model } = this.llm;
     if (!apiKey) throw new Error('尚未配置大模型 API Key，请先点击右上角"设置"完成配置');
     const history = (messages || []).map((m) => ({ role: m.role, content: m.content || '' }));
-    // 注入 system prompt：工具生成规范（见 server/prompts.js）
-    history.unshift({ role: 'system', content: SYSTEM_PROMPT });
+    // 注入 system prompt：工具生成规范（见 server/prompts.js）+ officecli 能力索引（减少重复 help 查询）
+    const ref = getOfficecliRef(this.officecliPath);
+    history.unshift({ role: 'system', content: ref ? `${SYSTEM_PROMPT}\n\n${ref}` : SYSTEM_PROMPT });
     const tools = this.buildToolsSchema();
 
     for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
@@ -267,16 +277,22 @@ class Agent {
     }
     if (typeof script !== 'string' || !script.trim()) throw new Error('生成失败：缺少脚本内容');
     if (Buffer.byteLength(script, 'utf8') > MAX_SCRIPT_BYTES) throw new Error('生成失败：脚本内容过大');
+    if (!/\bmodule\.exports\s*=|^export\b/m.test(script)) throw new Error('生成失败：脚本缺少 module.exports（tool.js 须导出 async 函数）');
     if (!metaJson || typeof metaJson !== 'object') throw new Error('生成失败：缺少 meta.json');
 
     const meta = { ...metaJson, name, description: metaJson.description || description || '', enabled: false };
     const dir = path.join(this.toolsRoot, name);
     fs.mkdirSync(dir, { recursive: true });
-    // 带 UTF-8 BOM，避免 PowerShell 5 按 ANSI 读取中文脚本乱码
-    fs.writeFileSync(path.join(dir, 'tool.ps1'), '\uFEFF' + script, 'utf8');
+    // Node 胶水脚本：原生 UTF-8，无 BOM/param/编码类 PowerShell 坑
+    fs.writeFileSync(path.join(dir, 'tool.js'), script, 'utf8');
     fs.writeFileSync(path.join(dir, 'meta.json'), JSON.stringify(meta, null, 2));
     this.registry.reload();
-    return { name, description: meta.description, enabled: false };
+    return {
+      name,
+      title: typeof meta.title === 'string' && meta.title.trim() ? meta.title.trim() : name,
+      description: meta.description,
+      enabled: false
+    };
   }
 
   /** 删除现有工具（删除 tools/<name>/ 目录，不可恢复）。 */
@@ -332,7 +348,7 @@ class Agent {
     const resp = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-      body: JSON.stringify({ model, messages: history, tools, stream: true })
+      body: JSON.stringify({ model, messages: history, tools, stream: true, max_tokens: 8192 })
     });
     if (!resp.ok) {
       const text = await resp.text();

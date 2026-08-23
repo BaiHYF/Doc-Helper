@@ -1,0 +1,32 @@
+{
+  "name": "xlsx-append-data",
+  "title": "纵向拼接",
+  "version": "1.0.0",
+  "enabled": true,
+  "description": "把多个同结构 xlsx 纵向拼接成一张表：以首行表头按列名对齐，列取并集、缺失列留空；可选按整行内容去重",
+  "category": ["合并"],
+  "inputFiles": {
+    "min": 2,
+    "max": null
+  },
+  "accept": [".xlsx"],
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "inputDir": {
+        "type": "file",
+        "description": "包含待拼接 xlsx 的目录（每个文件取第一个工作表）"
+      },
+      "dedupe": {
+        "type": "string",
+        "description": "是否按整行内容去重：填“是”或留空（默认不去重）"
+      },
+      "output": {
+        "type": "string",
+        "output": true,
+        "description": "输出 xlsx 文件路径"
+      }
+    },
+    "required": ["inputDir", "output"]
+  }
+}

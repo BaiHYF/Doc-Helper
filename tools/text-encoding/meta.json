@@ -1,0 +1,36 @@
+{
+  "name": "text-encoding",
+  "title": "编码转换",
+  "version": "1.0.0",
+  "enabled": true,
+  "description": "把文本文件的编码转换为 UTF-8 或 UTF-16（支持识别/转换 GBK、GB18030 乱码文件），输出新文件不改原文件",
+  "category": ["格式"],
+  "inputFiles": {
+    "min": 1,
+    "max": 1
+  },
+  "accept": [".txt", ".csv", ".log"],
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "inputFile": {
+        "type": "file",
+        "description": "待转换编码的文本文件"
+      },
+      "from": {
+        "type": "string",
+        "description": "源文件编码：auto（按 BOM 自动识别，默认）/ utf8 / gbk / gb18030 / utf16le"
+      },
+      "to": {
+        "type": "string",
+        "description": "目标编码：utf8（默认）/ utf16le"
+      },
+      "output": {
+        "type": "string",
+        "output": true,
+        "description": "输出文件路径"
+      }
+    },
+    "required": ["inputFile", "output"]
+  }
+}

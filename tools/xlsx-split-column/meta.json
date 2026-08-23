@@ -1,0 +1,36 @@
+{
+  "name": "xlsx-split-column",
+  "title": "一列拆多列",
+  "version": "1.0.0",
+  "enabled": true,
+  "description": "把 Excel 指定列按分隔符（如逗号）拆成多列，插入到原列右侧，输出新文件不改原文件",
+  "category": ["拆分"],
+  "inputFiles": {
+    "min": 1,
+    "max": 1
+  },
+  "accept": [".xlsx"],
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "inputFile": {
+        "type": "file",
+        "description": "待处理的 xlsx 文件（取第一个工作表）"
+      },
+      "column": {
+        "type": "string",
+        "description": "要拆分的列：填列号（1 起）或表头列名，如 2 或 “标签”"
+      },
+      "delimiter": {
+        "type": "string",
+        "description": "分隔符（默认英文逗号 ，）"
+      },
+      "output": {
+        "type": "string",
+        "output": true,
+        "description": "输出 xlsx 文件路径"
+      }
+    },
+    "required": ["inputFile", "column", "output"]
+  }
+}

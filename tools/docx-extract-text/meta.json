@@ -1,0 +1,28 @@
+{
+  "name": "docx-extract-text",
+  "title": "提取正文",
+  "version": "1.0.0",
+  "enabled": true,
+  "description": "把 docx 的正文（含表格内文本）提取为纯文本 txt 文件，按段落分行，不含页眉页脚",
+  "category": ["格式"],
+  "inputFiles": {
+    "min": 1,
+    "max": 1
+  },
+  "accept": [".docx"],
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "inputFile": {
+        "type": "file",
+        "description": "待提取的 docx 文件"
+      },
+      "output": {
+        "type": "string",
+        "output": true,
+        "description": "输出 txt 文件路径"
+      }
+    },
+    "required": ["inputFile", "output"]
+  }
+}

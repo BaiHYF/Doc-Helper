@@ -1,0 +1,28 @@
+{
+  "name": "xlsx-merge-sheets",
+  "title": "多表合并",
+  "version": "1.0.0",
+  "enabled": true,
+  "description": "把 inputDir 下多个 xlsx 合并为一个工作簿，每个源文件对应一个工作表（sheet 名 = 源文件名）",
+  "category": ["合并"],
+  "inputFiles": {
+    "min": 2,
+    "max": null
+  },
+  "accept": [".xlsx"],
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "inputDir": {
+        "type": "file",
+        "description": "包含待合并 xlsx 的目录"
+      },
+      "output": {
+        "type": "string",
+        "output": true,
+        "description": "输出 xlsx 文件路径"
+      }
+    },
+    "required": ["inputDir", "output"]
+  }
+}

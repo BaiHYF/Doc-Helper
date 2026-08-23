@@ -1,0 +1,28 @@
+{
+  "name": "docx-merge",
+  "title": "文档合并",
+  "version": "1.0.0",
+  "enabled": true,
+  "description": "把多个 docx 按顺序合并成一个文档：每个文档另起一页，保留段落基本样式（字体/字号/加粗/对齐），页眉页脚沿用第一个文档",
+  "category": ["合并"],
+  "inputFiles": {
+    "min": 2,
+    "max": null
+  },
+  "accept": [".docx"],
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "inputDir": {
+        "type": "file",
+        "description": "包含待合并 docx 的目录（按文件名顺序合并）"
+      },
+      "output": {
+        "type": "string",
+        "output": true,
+        "description": "输出 docx 文件路径"
+      }
+    },
+    "required": ["inputDir", "output"]
+  }
+}

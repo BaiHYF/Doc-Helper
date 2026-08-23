@@ -1,0 +1,44 @@
+{
+  "name": "xlsx-filter-rows",
+  "title": "筛选行",
+  "version": "1.0.0",
+  "enabled": true,
+  "description": "按指定列的条件（包含/等于/前缀/后缀关键词）筛选行，可选择保留或删除匹配行，输出新文件不改原文件",
+  "category": ["清洗"],
+  "inputFiles": {
+    "min": 1,
+    "max": 1
+  },
+  "accept": [".xlsx"],
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "inputFile": {
+        "type": "file",
+        "description": "待处理的 xlsx 文件（取第一个工作表）"
+      },
+      "column": {
+        "type": "string",
+        "description": "筛选依据的列：列号（1 起）或表头列名，如 1 或 “状态”"
+      },
+      "keyword": {
+        "type": "string",
+        "description": "筛选关键词"
+      },
+      "mode": {
+        "type": "string",
+        "description": "匹配方式：contains（包含，默认）/ equals（等于）/ starts（前缀）/ ends（后缀）"
+      },
+      "keep": {
+        "type": "string",
+        "description": "是否保留匹配行：填“是”或留空 = 保留匹配行；填“否”或“删除” = 删除匹配行"
+      },
+      "output": {
+        "type": "string",
+        "output": true,
+        "description": "输出 xlsx 文件路径"
+      }
+    },
+    "required": ["inputFile", "column", "keyword", "output"]
+  }
+}

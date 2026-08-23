@@ -1,0 +1,36 @@
+{
+  "name": "txt-merge",
+  "title": "文本合并",
+  "version": "1.0.0",
+  "enabled": true,
+  "description": "把多个 txt 文本文件按上传顺序合并为一个 txt（可设置文件间分隔文本与源编码），输出新文件不改原文件",
+  "category": ["合并"],
+  "inputFiles": {
+    "min": 1,
+    "max": null
+  },
+  "accept": [".txt", ".csv"],
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "inputFiles": {
+        "type": "file",
+        "description": "待合并的文本文件（txt / csv，可多选，按顺序合并）"
+      },
+      "separator": {
+        "type": "string",
+        "description": "文件之间的分隔文本（默认直接拼接，可填换行符 \\n 或任意文字）"
+      },
+      "encoding": {
+        "type": "string",
+        "description": "源文件编码：utf8（默认）/ gbk / gb18030 / utf16le"
+      },
+      "output": {
+        "type": "string",
+        "output": true,
+        "description": "输出 txt 文件路径"
+      }
+    },
+    "required": ["inputFiles", "output"]
+  }
+}

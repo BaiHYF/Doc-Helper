@@ -1,0 +1,32 @@
+{
+  "name": "docx-replace",
+  "title": "关键词替换",
+  "version": "1.0.0",
+  "enabled": true,
+  "description": "批量替换 docx 中的关键词：按 JSON 映射（{\"旧词\":\"新词\"}）替换正文段落与表格内文本，子串替换、大小写敏感，不改原文件",
+  "category": ["替换"],
+  "inputFiles": {
+    "min": 1,
+    "max": null
+  },
+  "accept": [".docx"],
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "inputDir": {
+        "type": "file",
+        "description": "包含待替换 docx 的目录（每个文件生成一个替换结果）"
+      },
+      "mapping": {
+        "type": "string",
+        "description": "替换映射 JSON：{\"旧词\":\"新词\",\"旧词2\":\"新词2\"}"
+      },
+      "outputDir": {
+        "type": "string",
+        "output": true,
+        "description": "输出目录路径（每个源文件生成 <文件名>.docx）"
+      }
+    },
+    "required": ["inputDir", "mapping", "outputDir"]
+  }
+}

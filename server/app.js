@@ -324,7 +324,8 @@ class DocHelperApp {
   }
 
   serveStatic(pathname, res) {
-    let file = pathname === '/' ? 'index.html' : pathname.replace(/^\/+/, '');
+    // 根路径进入入口页（landing.html），主界面保留在 /index.html
+    let file = pathname === '/' ? 'landing.html' : pathname.replace(/^\/+/, '');
     const full = path.resolve(this.webRoot, file);
     if (!full.startsWith(path.resolve(this.webRoot) + path.sep) && full !== path.resolve(this.webRoot)) {
       return this.json(res, 403, { error: '禁止访问' });

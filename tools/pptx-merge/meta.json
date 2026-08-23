@@ -1,0 +1,28 @@
+{
+  "name": "pptx-merge",
+  "title": "演示文稿合并",
+  "version": "1.0.0",
+  "enabled": true,
+  "description": "把多个 pptx 演示文稿按顺序合并为一个（第一个文件的幻灯片在前，其余文件依次追加），输出新文件不改原文件",
+  "category": ["合并"],
+  "inputFiles": {
+    "min": 1,
+    "max": null
+  },
+  "accept": [".pptx"],
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "inputFiles": {
+        "type": "file",
+        "description": "待合并的 pptx 文件（可多选，按顺序合并）"
+      },
+      "output": {
+        "type": "string",
+        "output": true,
+        "description": "输出 pptx 文件路径"
+      }
+    },
+    "required": ["inputFiles", "output"]
+  }
+}

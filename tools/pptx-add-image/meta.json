@@ -1,0 +1,52 @@
+{
+  "name": "pptx-add-image",
+  "title": "插入图片",
+  "version": "1.0.0",
+  "enabled": true,
+  "description": "在 pptx 的指定幻灯片中插入图片（可设位置与尺寸），输出新文件不改原文件",
+  "category": ["生成"],
+  "inputFiles": {
+    "min": 1,
+    "max": 1
+  },
+  "accept": [".pptx"],
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "inputFile": {
+        "type": "file",
+        "description": "目标 pptx 文件"
+      },
+      "image": {
+        "type": "file",
+        "description": "要插入的图片（png / jpg）"
+      },
+      "slideIndex": {
+        "type": "string",
+        "description": "插入到第几张幻灯片（默认 1）"
+      },
+      "x": {
+        "type": "string",
+        "description": "距左边距（如 2cm，可省略）"
+      },
+      "y": {
+        "type": "string",
+        "description": "距上边距（如 2cm，可省略）"
+      },
+      "width": {
+        "type": "string",
+        "description": "图片宽度（如 10cm，可省略保持原比例）"
+      },
+      "height": {
+        "type": "string",
+        "description": "图片高度（如 8cm，可省略保持原比例）"
+      },
+      "output": {
+        "type": "string",
+        "output": true,
+        "description": "输出 pptx 文件路径"
+      }
+    },
+    "required": ["inputFile", "image", "output"]
+  }
+}

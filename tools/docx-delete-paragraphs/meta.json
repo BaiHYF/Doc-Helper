@@ -1,0 +1,32 @@
+{
+  "name": "docx-delete-paragraphs",
+  "title": "删除段落",
+  "version": "1.0.0",
+  "enabled": true,
+  "description": "删除 docx 中包含指定关键词的段落（正文+表格内段落，子串匹配、大小写不敏感），输出新文件不改原文件",
+  "category": ["清洗"],
+  "inputFiles": {
+    "min": 1,
+    "max": 1
+  },
+  "accept": [".docx"],
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "inputFile": {
+        "type": "file",
+        "description": "待处理的 docx 文件"
+      },
+      "keyword": {
+        "type": "string",
+        "description": "包含此关键词的段落会被删除（多个关键词用逗号分隔）"
+      },
+      "output": {
+        "type": "string",
+        "output": true,
+        "description": "输出 docx 文件路径"
+      }
+    },
+    "required": ["inputFile", "keyword", "output"]
+  }
+}

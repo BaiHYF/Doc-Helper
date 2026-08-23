@@ -1,0 +1,40 @@
+{
+  "name": "pptx-find-replace",
+  "title": "查找替换",
+  "version": "1.0.0",
+  "enabled": true,
+  "description": "在 pptx 全部幻灯片中查找文本并替换（标题+文本框，子串替换、大小写不敏感），输出新文件不改原文件",
+  "category": ["替换"],
+  "inputFiles": {
+    "min": 1,
+    "max": 1
+  },
+  "accept": [".pptx"],
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "inputFile": {
+        "type": "file",
+        "description": "待处理的 pptx 文件"
+      },
+      "find": {
+        "type": "string",
+        "description": "要查找的文本"
+      },
+      "replace": {
+        "type": "string",
+        "description": "替换为的新文本（留空 = 删除该文本）"
+      },
+      "matchCase": {
+        "type": "string",
+        "description": "是否区分大小写：填“是”或留空（默认不区分）"
+      },
+      "output": {
+        "type": "string",
+        "output": true,
+        "description": "输出 pptx 文件路径"
+      }
+    },
+    "required": ["inputFile", "find", "output"]
+  }
+}

@@ -1,0 +1,56 @@
+{
+  "name": "xlsx-clean",
+  "title": "数据清洗",
+  "version": "1.0.0",
+  "enabled": true,
+  "description": "对表格数据做通用清洗：去重行、去空行、去首尾空格、指定列统一大小写、填充空值、数字转换；支持“姓名清洗”预置模板（自动识别英文名/出生年份列）",
+  "category": ["清洗"],
+  "inputFiles": {
+    "min": 1,
+    "max": 1
+  },
+  "accept": [".xlsx"],
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "inputFile": {
+        "type": "file",
+        "description": "待清洗的 xlsx 文件（取第一个工作表）"
+      },
+      "preset": {
+        "type": "string",
+        "description": "预置模板：填“姓名清洗”= 去空格 + 英文名列首字母大写/合并空格 + 出生年份列去掉“年”字（自动识别列名）"
+      },
+      "trimCells": {
+        "type": "string",
+        "description": "去单元格首尾空格：填“是”或留空（默认否）"
+      },
+      "removeEmptyRows": {
+        "type": "string",
+        "description": "删除全空行：填“是”或留空（默认否）"
+      },
+      "removeDupRows": {
+        "type": "string",
+        "description": "按整行内容去重（保留首次出现）：填“是”或留空（默认否）"
+      },
+      "titleCaseCol": {
+        "type": "string",
+        "description": "英文统一大小写列名（首字母大写、词间单空格）：多个列用逗号分隔，留空不做"
+      },
+      "fillEmpty": {
+        "type": "string",
+        "description": "空值填充文本：留空不填充"
+      },
+      "convertNums": {
+        "type": "string",
+        "description": "数字文本转数字：填“是”或留空（默认否）"
+      },
+      "output": {
+        "type": "string",
+        "output": true,
+        "description": "输出 xlsx 文件路径"
+      }
+    },
+    "required": ["inputFile", "output"]
+  }
+}

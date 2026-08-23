@@ -5,6 +5,6 @@
   "description": "Doc-Helper - 本地文档处理助手",
   "scripts": {
     "start": "node server/index.js",
-    "test": "node --test \"test/*.test.js\""
+    "test": "node --test --test-concurrency=1 \"test/*.test.js\""
   }
 }

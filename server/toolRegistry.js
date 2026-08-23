@@ -38,9 +38,11 @@ class ToolRegistry {
       }
       tools.push({
         name: meta.name,
+        title: typeof meta.title === 'string' && meta.title.trim() ? meta.title.trim() : meta.name,
         version: meta.version || '0.0.0',
         enabled: meta.enabled !== false,
         description: meta.description,
+        categories: normalizeCategories(meta.category),
         parameters: meta.parameters || { type: 'object', properties: {}, required: [] },
         inputFiles: normalizeInputFiles(meta.inputFiles),
         accept: normalizeAccept(meta.accept),
@@ -102,4 +104,16 @@ function normalizeAccept(accept) {
   return accept
     .map((e) => String(e).toLowerCase().replace(/^\./, ''))
     .filter((e) => /^[a-z0-9]+$/.test(e));
+}
+
+/** 归一化分类：字符串 → 单元素数组；数组去空/去重；缺省空数组。 */
+function normalizeCategories(category) {
+  if (typeof category === 'string') category = [category];
+  if (!Array.isArray(category)) return [];
+  const out = [];
+  for (const c of category) {
+    const s = String(c == null ? '' : c).trim();
+    if (s && !out.includes(s)) out.push(s);
+  }
+  return out;
 }

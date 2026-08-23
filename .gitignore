@@ -4,5 +4,4 @@ server/logs/
 server/runtime/
 .scratch/
 *.log
-# 工具是智能体生成物（草稿/启用态），不进版本库
-tools/
+

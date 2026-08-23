@@ -1,0 +1,32 @@
+{
+  "name": "xlsx-unique-values",
+  "title": "提取唯一值",
+  "version": "1.0.0",
+  "enabled": true,
+  "description": "从 Excel 的指定列提取去重后的唯一值列表，输出为单列新表（保持首次出现顺序）",
+  "category": ["清洗"],
+  "inputFiles": {
+    "min": 1,
+    "max": 1
+  },
+  "accept": [".xlsx"],
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "inputFile": {
+        "type": "file",
+        "description": "待处理的 xlsx 文件（取第一个工作表）"
+      },
+      "column": {
+        "type": "string",
+        "description": "要提取的列：填列号（1 起）或表头列名，如 3 或 “城市”"
+      },
+      "output": {
+        "type": "string",
+        "output": true,
+        "description": "输出 xlsx 文件路径"
+      }
+    },
+    "required": ["inputFile", "column", "output"]
+  }
+}

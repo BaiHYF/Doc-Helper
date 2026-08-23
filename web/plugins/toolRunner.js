@@ -6,6 +6,34 @@ let currentTask = null;
 let taskEventSource = null;
 let selectedFiles = [];
 
+/* 参数中文标签（普通用户看不懂 inputFile/output 这类英文名） */
+const PARAM_LABELS = {
+  inputFile: '输入文件',
+  inputDir: '输入文件',
+  output: '输出文件',
+  outputDir: '输出目录',
+  preset: '预置模板',
+  mapping: '替换规则',
+  dedupe: '去除重复行',
+  trimCells: '去除首尾空格',
+  removeEmptyRows: '删除空行',
+  removeDupRows: '去除重复行',
+  titleCaseCol: '统一大小写的列',
+  fillEmpty: '空值填充',
+  convertNums: '数字文本转数字',
+  autofit: '自动列宽',
+  headerStyle: '表头样式',
+  align: '对齐方式',
+  numberFormat: '数字格式',
+  freezeRow: '冻结行数'
+};
+function paramLabel(name, prop) {
+  if (PARAM_LABELS[name]) return PARAM_LABELS[name];
+  if (prop && prop.output === true) return '输出文件';
+  if (prop && prop.type === 'file') return '输入文件';
+  return name;
+}
+
 /* 参数分类 */
 function paramKind(prop) {
   if (prop && prop.type === 'file') return 'file';
@@ -227,8 +255,10 @@ function openTool(tool) {
 
   $('#main-view').classList.add('hidden');
   $('#call-view').classList.remove('hidden');
-  $('#call-title').textContent = tool.name;
-  $('#call-desc').textContent = tool.description;
+  $('#call-title').textContent = tool.title || tool.name;
+  const tags = (tool.categories || []).map((c) => escapeHtml(c)).join(' · ');
+  $('#call-desc').innerHTML = `${escapeHtml(tool.description)}` +
+    (tags ? `<span class="call-tags">${tags}</span>` : '');
   $('#param-fields').innerHTML = '';
   $('#run-result').classList.add('hidden');
   $('#run-progress').classList.add('hidden');
@@ -272,14 +302,16 @@ function openTool(tool) {
     if (paramKind(prop) === 'file') continue;
     const isRequired = required.includes(name);
     const isOutput = paramKind(prop) === 'output';
+    const label = paramLabel(name, prop);
     const field = document.createElement('div');
     field.className = 'param';
     field.innerHTML = `
-      <label>${escapeHtml(name)}<span class="req">${isRequired ? ' *' : ''}</span></label>
+      <label>${escapeHtml(label)}<span class="req">${isRequired ? ' *' : ''}</span></label>
       <div class="hint">${escapeHtml(prop.description || '')}</div>`;
     if (isOutput) {
       const ext = defaultOutputExt(tool.accept);
-      const def = `@results/out${ext ? '.' + ext : '.docx'}`;
+      const base = (tool.title || tool.name).replace(/[\\/:*?"<>|]/g, '');
+      const def = `@results/${base}${ext ? '.' + ext : ''}`;
       field.innerHTML += `<input type="text" class="text-input" data-param="${name}" value="${def}">`;
     } else {
       field.innerHTML += `<input type="text" class="text-input" data-param="${name}">`;

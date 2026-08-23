@@ -1,0 +1,52 @@
+{
+  "name": "batch-rename",
+  "title": "批量重命名",
+  "version": "1.0.0",
+  "enabled": true,
+  "description": "把上传的一批文件批量重命名（支持加前缀/加后缀/查找替换/序号编号），输出到指定目录，不改原文件",
+  "category": ["文件"],
+  "inputFiles": {
+    "min": 1,
+    "max": null
+  },
+  "accept": [],
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "inputFiles": {
+        "type": "file",
+        "description": "待重命名的文件（可多选）"
+      },
+      "mode": {
+        "type": "string",
+        "description": "重命名方式：prefix（加前缀）/ suffix（加后缀）/ replace（查找替换）/ number（序号编号，默认）"
+      },
+      "prefix": {
+        "type": "string",
+        "description": "前缀文本（mode=prefix 时必填）"
+      },
+      "suffix": {
+        "type": "string",
+        "description": "后缀文本（mode=suffix 时必填，加在扩展名前）"
+      },
+      "find": {
+        "type": "string",
+        "description": "要替换的原文件名片段（mode=replace 时必填）"
+      },
+      "replace": {
+        "type": "string",
+        "description": "替换后的新片段（mode=replace 时必填）"
+      },
+      "startNumber": {
+        "type": "string",
+        "description": "起始序号（mode=number 时，默认 1）"
+      },
+      "outputDir": {
+        "type": "string",
+        "output": true,
+        "description": "输出目录路径（重命名后的文件放在这里）"
+      }
+    },
+    "required": ["inputFiles", "outputDir"]
+  }
+}

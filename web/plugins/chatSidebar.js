@@ -32,7 +32,7 @@ function renderDraftCard(draft, container) {
   card.className = 'chat-draft';
   card.innerHTML = `
     <div class="chat-draft-title">✨ 已生成新工具草稿（启用后才会生效）</div>
-    <div class="chat-draft-name">${escapeHtml(draft.name)}</div>
+    <div class="chat-draft-name">${escapeHtml(draft.title || draft.name)}</div>
     <div class="chat-draft-desc">${escapeHtml(draft.description || '')}</div>
     <button class="btn primary" data-draft-enable>启用</button>`;
   card.querySelector('[data-draft-enable]').onclick = async () => {

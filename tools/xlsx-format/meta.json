@@ -1,0 +1,48 @@
+{
+  "name": "xlsx-format",
+  "title": "格式调整",
+  "version": "1.0.0",
+  "enabled": true,
+  "description": "对 xlsx 做批量格式调整：自动列宽、表头加粗+底色、水平对齐、数字格式、冻结首行（作用于所有工作表）",
+  "category": ["格式"],
+  "inputFiles": {
+    "min": 1,
+    "max": 1
+  },
+  "accept": [".xlsx"],
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "inputFile": {
+        "type": "file",
+        "description": "待调整格式的 xlsx 文件"
+      },
+      "autofit": {
+        "type": "string",
+        "description": "自动列宽：填“是”或留空（默认是）"
+      },
+      "headerStyle": {
+        "type": "string",
+        "description": "表头（首行）加粗+底色：填“是”或留空（默认是）"
+      },
+      "align": {
+        "type": "string",
+        "description": "水平对齐：left / center / right（留空 = 不修改对齐）"
+      },
+      "numberFormat": {
+        "type": "string",
+        "description": "数字格式代码（如 0.00、#,##0）：作用于数字单元格（留空 = 不设置）"
+      },
+      "freezeRow": {
+        "type": "string",
+        "description": "冻结行数（如 1 表示冻结首行；留空 = 不冻结）"
+      },
+      "output": {
+        "type": "string",
+        "output": true,
+        "description": "输出 xlsx 文件路径"
+      }
+    },
+    "required": ["inputFile", "output"]
+  }
+}

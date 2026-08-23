@@ -1,0 +1,32 @@
+{
+  "name": "docx-fill-template",
+  "title": "模板填充",
+  "version": "1.0.0",
+  "enabled": true,
+  "description": "用数据填充 docx 模板中的 {{key}} 占位符，输出新文件不改原模板。数据可填 JSON 字符串，如 {\"姓名\":\"张三\",\"日期\":\"2026-01-01\"}",
+  "category": ["替换"],
+  "inputFiles": {
+    "min": 1,
+    "max": 1
+  },
+  "accept": [".docx"],
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "inputFile": {
+        "type": "file",
+        "description": "docx 模板文件（内含 {{key}} 占位符）"
+      },
+      "data": {
+        "type": "string",
+        "description": "填充数据 JSON，如 {\"姓名\":\"张三\",\"日期\":\"2026-01-01\"}"
+      },
+      "output": {
+        "type": "string",
+        "output": true,
+        "description": "输出 docx 文件路径"
+      }
+    },
+    "required": ["inputFile", "data", "output"]
+  }
+}

@@ -27,12 +27,12 @@ test('createDraftTool 落盘草稿且 enabled=false', () => {
   const draft = agent.createDraftTool({
     name: 'my-tool',
     description: '测试工具',
-    script: 'Write-Output "hello"',
+    script: 'module.exports = async (ctx) => ({ outputFiles: [], summary: "hi" });',
     metaJson: { description: '测试工具', inputFiles: { min: 1 } }
   });
   assert.equal(draft.enabled, false);
   assert.equal(draft.name, 'my-tool');
-  assert.ok(fs.existsSync(path.join(toolsRoot, 'my-tool', 'tool.ps1')));
+  assert.ok(fs.existsSync(path.join(toolsRoot, 'my-tool', 'tool.js')));
   assert.ok(fs.existsSync(path.join(toolsRoot, 'my-tool', 'meta.json')));
   const meta = JSON.parse(fs.readFileSync(path.join(toolsRoot, 'my-tool', 'meta.json'), 'utf-8'));
   assert.equal(meta.enabled, false);
@@ -43,14 +43,15 @@ test('createDraftTool 落盘草稿且 enabled=false', () => {
 
 test('createDraftTool 拒绝非法工具名（大小写/路径分隔符）', () => {
   const { agent } = makeAgent();
-  assert.throws(() => agent.createDraftTool({ name: 'My Tool', script: 'x', metaJson: {} }), /工具名不合法/);
-  assert.throws(() => agent.createDraftTool({ name: 'a/../b', script: 'x', metaJson: {} }), /工具名不合法/);
+  assert.throws(() => agent.createDraftTool({ name: 'My Tool', script: 'module.exports = 1;', metaJson: {} }), /工具名不合法/);
+  assert.throws(() => agent.createDraftTool({ name: 'a/../b', script: 'module.exports = 1;', metaJson: {} }), /工具名不合法/);
 });
 
-test('createDraftTool 拒绝缺少脚本或 metaJson', () => {
+test('createDraftTool 拒绝缺少 module.exports、脚本或 metaJson', () => {
   const { agent } = makeAgent();
+  assert.throws(() => agent.createDraftTool({ name: 'ok-tool', script: 'Write-Output "hello"', metaJson: {} }), /module\.exports/);
   assert.throws(() => agent.createDraftTool({ name: 'ok-tool', script: '', metaJson: {} }), /缺少脚本/);
-  assert.throws(() => agent.createDraftTool({ name: 'ok-tool', script: 'x' }), /缺少 meta\.json/);
+  assert.throws(() => agent.createDraftTool({ name: 'ok-tool', script: 'module.exports = async () => {}' }), /缺少 meta\.json/);
 });
 
 test('buildToolsSchema 暴露 create_tool 工具', () => {
@@ -216,7 +217,7 @@ test('deleteTool 删除工具目录并从清单移除', () => {
   fs.writeFileSync(path.join(toolsRoot, 'my-tool', 'meta.json'), JSON.stringify({
     name: 'my-tool', description: '待删除工具', enabled: true
   }));
-  fs.writeFileSync(path.join(toolsRoot, 'my-tool', 'tool.ps1'), '# x');
+  fs.writeFileSync(path.join(toolsRoot, 'my-tool', 'tool.js'), 'module.exports = 1;');
   registry.reload();
   assert.ok(registry.getTool('my-tool'));
 
@@ -247,10 +248,34 @@ test('runOfficecliHelp 返回 officecli 使用说明', () => {
   assert.ok(help.length > 100);
 });
 
-test('runOfficecliHelp 拒绝非法主题', () => {
+test('runOfficecliHelp 支持多级查询（格式/动词/元素）', () => {
   const { agent } = makeAgent();
-  assert.throws(() => agent.runOfficecliHelp({ topic: 'a; rm -rf' }), /主题不合法/);
-  assert.throws(() => agent.runOfficecliHelp({ topic: '../x' }), /主题不合法/);
+  const help = agent.runOfficecliHelp({ topic: 'xlsx add cell' });
+  assert.ok(help.length > 100);
+});
+
+test('runOfficecliHelp 支持 all 全量 dump', () => {
+  const { agent } = makeAgent();
+  const help = agent.runOfficecliHelp({ topic: 'all' });
+  assert.ok(help.length > 100);
+});
+
+test('runOfficecliHelp 非字符串 topic 被规范化', () => {
+  const { agent } = makeAgent();
+  // 数组拼成 'xlsx cell' 可正常查询
+  const help = agent.runOfficecliHelp({ topic: ['xlsx', 'cell'] });
+  assert.ok(help.length > 100);
+});
+
+test('runOfficecliHelp 非法主题返回用法提示而非抛错（智能体可重试）', () => {
+  const { agent } = makeAgent();
+  const r1 = agent.runOfficecliHelp({ topic: 'a; rm -rf' });
+  assert.equal(typeof r1, 'string');
+  assert.match(r1, /用法/);
+  const r2 = agent.runOfficecliHelp({ topic: '../x' });
+  assert.match(r2, /用法/);
+  const r3 = agent.runOfficecliHelp({ topic: {} });
+  assert.match(r3, /用法/);
 });
 
 test('runOfficecliHelp 未配置 officecli 时拒绝', () => {
