@@ -1,7 +1,11 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
-const ROOT = path.resolve(__dirname, '..');
+// SEA 单文件打包时，全部运行资产（web/tools/vendor）被释放到数据目录，
+// 通过 DOC_HELPER_HOME 指向；开发模式回退到项目根。
+const ROOT = process.env.DOC_HELPER_HOME
+  ? path.resolve(process.env.DOC_HELPER_HOME)
+  : path.resolve(__dirname, '..');
 const CONFIG_PATH = path.join(ROOT, 'config.json');
 const OFFICECLI_PATH = path.join(ROOT, 'vendor', 'officecli', 'officecli.exe');
 

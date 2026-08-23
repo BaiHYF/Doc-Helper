@@ -26,6 +26,26 @@ export function escapeHtml(s) {
   }[c]));
 }
 
+// 收藏（localStorage，纯前端）：值为工具 name 数组，全站共享同一份
+const FAV_KEY = 'dh:favorites';
+export function getFavorites() {
+  try { return JSON.parse(localStorage.getItem(FAV_KEY) || '[]'); } catch (_) { return []; }
+}
+export function setFavorites(names) {
+  localStorage.setItem(FAV_KEY, JSON.stringify(names));
+}
+export function isFavorite(name) {
+  return getFavorites().includes(name);
+}
+/** 切换收藏，返回切换后的收藏状态（true=已收藏） */
+export function toggleFavorite(name) {
+  const favs = getFavorites();
+  const i = favs.indexOf(name);
+  if (i === -1) favs.push(name); else favs.splice(i, 1);
+  setFavorites(favs);
+  return favs.includes(name);
+}
+
 // REST API 助手
 export const api = {
   async tools() {
@@ -33,6 +53,9 @@ export const api = {
   },
   async plugins() {
     return (await fetch('/api/plugins')).json();
+  },
+  async shared() {
+    return (await fetch('/shared-platform.json')).json();
   },
   async enablePlugin(file, enabled) {
     return (await fetch(`/api/plugins/${encodeURIComponent(file)}/enable`, {
@@ -95,7 +118,10 @@ export const api = {
   }
 };
 
-/** 创建插件上下文 */
+/** 创建插件上下文（app.js 创建一次，全部插件共享同一 state） */
 export function createCtx() {
-  return { $, api, on, off, emit, escapeHtml, state: {} };
+  return {
+    $, api, on, off, emit, escapeHtml,
+    state: { nav: { view: 'tools', cat: null, scope: 'all' } }
+  };
 }

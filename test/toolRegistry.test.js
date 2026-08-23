@@ -28,6 +28,11 @@ function makeFixture() {
     description: 'beta draft',
     parameters: { type: 'object', properties: {} }
   });
+  writeTool('gamma', {
+    name: 'gamma', version: '0.0.1', enabled: true, source: 'generated',
+    description: 'agent generated',
+    parameters: { type: 'object', properties: {} }
+  });
   // 无 meta.json 的目录应被忽略
   fs.mkdirSync(path.join(root, 'broken'));
   return root;
@@ -37,10 +42,14 @@ test('listTools 扫描目录并返回工具清单（含草稿标记）', () => {
   const root = makeFixture();
   const reg = new ToolRegistry(root);
   const tools = reg.listTools();
-  assert.equal(tools.length, 2);
+  assert.equal(tools.length, 3);
   const alpha = tools.find((t) => t.name === 'alpha');
   assert.equal(alpha.enabled, true);
   assert.equal(alpha.description, 'alpha tool');
+  // 未声明 source 归一化为内置；generated 标记保留
+  assert.equal(alpha.source, 'builtin');
+  assert.equal(tools.find((t) => t.name === 'beta').source, 'builtin');
+  assert.equal(tools.find((t) => t.name === 'gamma').source, 'generated');
   const beta = tools.find((t) => t.name === 'beta');
   assert.equal(beta.enabled, false);
   // 未声明的 inputFiles 归一化为不限数量
@@ -75,7 +84,7 @@ test('buildFunctionSchemas 只包含已启用工具，输出 OpenAI function 格
   const root = makeFixture();
   const reg = new ToolRegistry(root);
   const schemas = reg.buildFunctionSchemas();
-  assert.equal(schemas.length, 1);
+  assert.equal(schemas.length, 2);
   assert.equal(schemas[0].type, 'function');
   assert.equal(schemas[0].function.name, 'alpha');
   assert.deepEqual(schemas[0].function.parameters.properties, {
@@ -92,7 +101,7 @@ test('removeTool 删除工具目录并从清单移除', () => {
   assert.equal(r.name, 'alpha');
   assert.ok(!fs.existsSync(path.join(root, 'alpha')));
   assert.equal(reg.getTool('alpha'), undefined);
-  assert.equal(reg.listTools().length, 1);
+  assert.equal(reg.listTools().length, 2);
 });
 
 test('removeTool 拒绝不存在的工具 / 非法名称', () => {

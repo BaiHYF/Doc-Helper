@@ -5,6 +5,7 @@ let currentTool = null;
 let currentTask = null;
 let taskEventSource = null;
 let selectedFiles = [];
+let _ctx = null;
 
 /* 参数中文标签（普通用户看不懂 inputFile/output 这类英文名） */
 const PARAM_LABELS = {
@@ -253,7 +254,7 @@ function openTool(tool) {
   selectedFiles = [];
   emit('view:tool', tool);
 
-  $('#main-view').classList.add('hidden');
+  $('#view-root').classList.add('hidden');
   $('#call-view').classList.remove('hidden');
   $('#call-title').textContent = tool.title || tool.name;
   const tags = (tool.categories || []).map((c) => escapeHtml(c)).join(' · ');
@@ -333,13 +334,14 @@ function goHome() {
   stopPolling();
   currentTool = null;
   $('#call-view').classList.add('hidden');
-  $('#main-view').classList.remove('hidden');
-  emit('tools:refresh');
+  $('#view-root').classList.remove('hidden');
+  emit('nav:change', _ctx.state.nav);
 }
 
 export default {
   name: 'toolRunner',
-  mount() {
+  mount(ctx) {
+    _ctx = ctx;
     this._onOpen = (t) => openTool(t);
     this._onHome = () => goHome();
     on('tool:open', this._onOpen);

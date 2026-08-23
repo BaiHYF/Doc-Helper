@@ -3,6 +3,11 @@ const path = require('node:path');
 const { spawn } = require('node:child_process');
 const { ToolRegistry } = require('./toolRegistry.js');
 
+/** 是否运行在单文件 EXE（Node SEA）中：是则子进程以 --toolrunner 复用本入口 */
+const IS_SEA = (() => {
+  try { return require('node:sea').isSea(); } catch (_) { return false; }
+})();
+
 /**
  * 工具执行器。优先执行 tools/<name>/tool.js（Node 胶水，经 nodeToolRunner 子进程），
  * 兼容遗留的 tools/<name>/tool.ps1。
@@ -33,8 +38,12 @@ class ToolRunner {
     let stdinPayload = null;
     if (fs.existsSync(jsFile)) {
       // Node 工具：tool.js 优先，参数经 stdin JSON 传入，type:"file" 参数解析为文件数组
+      // SEA 单文件模式下没有独立的 nodeToolRunner.js 文件，改为以 --toolrunner 参数
+      // 复用本进程入口（sea-entry.js 内部分发到 nodeToolRunner）。
       cmd = process.execPath;
-      argv = [path.join(__dirname, 'nodeToolRunner.js'), jsFile];
+      argv = IS_SEA
+        ? ['--toolrunner', jsFile]
+        : [path.join(__dirname, 'nodeToolRunner.js'), jsFile];
       stdinPayload = JSON.stringify({ args: this.resolveFileParams(tool, args), officecli: this.officecliPath });
     } else if (fs.existsSync(psFile)) {
       // 遗留 PowerShell 工具

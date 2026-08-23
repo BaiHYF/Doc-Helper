@@ -41,6 +41,7 @@ class ToolRegistry {
         title: typeof meta.title === 'string' && meta.title.trim() ? meta.title.trim() : meta.name,
         version: meta.version || '0.0.0',
         enabled: meta.enabled !== false,
+        source: meta.source === 'generated' ? 'generated' : 'builtin',
         description: meta.description,
         categories: normalizeCategories(meta.category),
         parameters: meta.parameters || { type: 'object', properties: {}, required: [] },

@@ -7,7 +7,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 const cp = require('node:child_process');
 
-const CACHE_DIR = path.join(__dirname, 'runtime');
+const config = require('./config.js');
+const CACHE_DIR = path.join(config.ROOT, 'server', 'runtime');
 const CACHE_FILE = path.join(CACHE_DIR, 'officecli-ref.json');
 
 /** 解析 officecli help all --jsonl，构建每个格式的元素 + 支持操作（ops）清单 */

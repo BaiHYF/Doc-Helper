@@ -280,7 +280,7 @@ class Agent {
     if (!/\bmodule\.exports\s*=|^export\b/m.test(script)) throw new Error('生成失败：脚本缺少 module.exports（tool.js 须导出 async 函数）');
     if (!metaJson || typeof metaJson !== 'object') throw new Error('生成失败：缺少 meta.json');
 
-    const meta = { ...metaJson, name, description: metaJson.description || description || '', enabled: false };
+    const meta = { ...metaJson, name, description: metaJson.description || description || '', enabled: false, source: 'generated' };
     const dir = path.join(this.toolsRoot, name);
     fs.mkdirSync(dir, { recursive: true });
     // Node 胶水脚本：原生 UTF-8，无 BOM/param/编码类 PowerShell 坑

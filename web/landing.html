@@ -3,417 +3,507 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Doc-Helper · 本地智能文档工作台</title>
+<title>文枢智汇 · 专注于文档处理与经验共享的智能体平台</title>
 <style>
   :root {
-    --bg-0: #04070d;
-    --bg-1: #0a1322;
-    --cyan: #22d3ee;
-    --blue: #3b82f6;
-    --violet: #8b5cf6;
-    --text: #e8eef7;
-    --muted: #8fa3bd;
-    --line: rgba(139, 160, 190, .18);
-    --grad: linear-gradient(92deg, var(--cyan), var(--blue) 52%, var(--violet));
-    --font-disp: "Bahnschrift", "Segoe UI", system-ui, sans-serif;
+    /* 墨色纸本 · 古典青朱金 */
+    --ink-0: #0a0d14;
+    --ink-1: #101624;
+    --ink-2: #161d2c;
+    --paper: #ece6d9;
+    --muted: #98a1b0;
+    --cinnabar: #cf4d31;   /* 朱砂：印信 */
+    --azurite: #4b7fa5;    /* 石青：辅助 */
+    --gold: #c9a45c;       /* 金：点缀 */
+    --line: rgba(236, 230, 217, .14);
+    --font-serif: "Source Han Serif SC", "Noto Serif SC", "STZhongsong", "SimSun", serif;
+    --font-sans: "Microsoft YaHei", system-ui, sans-serif;
     --font-mono: "Cascadia Mono", Consolas, monospace;
   }
   * { box-sizing: border-box; }
   html { scroll-behavior: smooth; }
   body {
-    margin: 0;
-    min-height: 100vh;
-    font-family: "Microsoft YaHei", system-ui, sans-serif;
-    background: var(--bg-0);
-    color: var(--text);
-    overflow-x: hidden;
+    margin: 0; min-height: 100vh;
+    font-family: var(--font-sans);
+    background: var(--ink-0); color: var(--paper);
+    overflow-x: hidden; line-height: 1.8;
   }
   a { color: inherit; text-decoration: none; }
-  :focus-visible { outline: 2px solid var(--cyan); outline-offset: 3px; border-radius: 4px; }
+  :focus-visible { outline: 2px solid var(--cinnabar); outline-offset: 3px; border-radius: 4px; }
 
-  /* ---------- 背景层：网格 + 粒子 + 光晕 ---------- */
-  #bg { position: fixed; inset: 0; z-index: 0; display: block; }
-  .grid-overlay {
-    position: fixed; inset: 0; z-index: 1; pointer-events: none;
+  /* ---------- 稿纸网格背景 + 朱砂边线 ---------- */
+  .paper-grid {
+    position: fixed; inset: 0; z-index: 0; pointer-events: none;
     background-image:
-      linear-gradient(rgba(34, 211, 238, .045) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(34, 211, 238, .045) 1px, transparent 1px);
-    background-size: 52px 52px;
-    mask-image: radial-gradient(ellipse 90% 70% at 50% 38%, #000 30%, transparent 78%);
-    -webkit-mask-image: radial-gradient(ellipse 90% 70% at 50% 38%, #000 30%, transparent 78%);
+      linear-gradient(rgba(236, 230, 217, .045) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(236, 230, 217, .045) 1px, transparent 1px);
+    background-size: 34px 34px;
+    mask-image: radial-gradient(ellipse 110% 78% at 50% 0%, #000 26%, transparent 74%);
+    -webkit-mask-image: radial-gradient(ellipse 110% 78% at 50% 0%, #000 26%, transparent 74%);
   }
-  .glow {
-    position: fixed; z-index: 0; border-radius: 50%; pointer-events: none;
-    filter: blur(90px); opacity: .5;
+  .margin-line {
+    position: fixed; left: 54px; top: 0; bottom: 0; z-index: 0;
+    width: 2px; background: linear-gradient(180deg, transparent, rgba(207, 77, 49, .34) 18%, rgba(207, 77, 49, .34) 82%, transparent);
+    pointer-events: none;
   }
-  .glow.g1 { width: 520px; height: 520px; left: -140px; top: -160px; background: radial-gradient(circle, rgba(34, 211, 238, .34), transparent 70%); }
-  .glow.g2 { width: 560px; height: 560px; right: -180px; top: 12%; background: radial-gradient(circle, rgba(139, 92, 246, .32), transparent 70%); }
-  .glow.g3 { width: 460px; height: 460px; left: 32%; bottom: -220px; background: radial-gradient(circle, rgba(59, 130, 246, .26), transparent 70%); }
 
-  /* ---------- 顶部导航 ---------- */
+  /* ---------- 顶栏 ---------- */
   header {
-    position: fixed; top: 0; left: 0; right: 0; z-index: 10;
+    position: fixed; top: 0; left: 0; right: 0; z-index: 20;
     display: flex; align-items: center; justify-content: space-between;
     padding: 18px 34px;
-    background: linear-gradient(180deg, rgba(4, 7, 13, .85), transparent);
+    background: linear-gradient(180deg, rgba(10, 13, 20, .9), transparent);
   }
-  .brand { display: flex; align-items: center; gap: 12px; font-family: var(--font-disp); letter-spacing: .14em; }
-  .brand-mark {
-    width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center;
-    background: var(--grad); box-shadow: 0 0 18px rgba(59, 130, 246, .55);
+  .brand { display: flex; align-items: center; gap: 14px; }
+  /* 朱砂印章 */
+  .seal {
+    font-family: var(--font-serif); font-weight: 700;
+    color: #f5ead8; line-height: 1;
+    display: inline-grid; grid-template-columns: 1fr 1fr; place-items: center; gap: 1px;
+    background: linear-gradient(150deg, #d85a3b, #a83a22);
+    border-radius: 7px; text-align: center;
+    box-shadow: 0 4px 14px rgba(207, 77, 49, .45), inset 0 1px 0 rgba(255, 255, 255, .25);
+    transform: rotate(-2deg);
   }
-  .brand-mark svg { width: 17px; height: 17px; }
-  .brand-name { font-size: 15px; font-weight: 600; color: var(--text); }
-  .brand-name em { font-style: normal; color: var(--cyan); }
+  .seal.sm { width: 34px; height: 34px; font-size: 10.5px; letter-spacing: .5px; }
+  .brand-name { font-family: var(--font-serif); font-size: 20px; font-weight: 700; letter-spacing: .18em; }
+  .brand-sub { display: block; font-family: var(--font-sans); font-size: 10.5px; letter-spacing: .22em; color: var(--muted); margin-top: 2px; }
+
+  .btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 14.5px; font-weight: 600; letter-spacing: .05em;
+    padding: 12px 26px; border-radius: 10px; cursor: pointer;
+    border: 1px solid transparent;
+    transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease, background .18s ease;
+  }
+  .btn:hover { transform: translateY(-2px); }
+  .btn-primary {
+    color: #fdf6ea; background: linear-gradient(150deg, #d85a3b, #b03a20);
+    box-shadow: 0 0 22px rgba(207, 77, 49, .4);
+  }
+  .btn-primary:hover { box-shadow: 0 0 34px rgba(216, 90, 59, .55); }
+  .btn-primary svg { width: 16px; height: 16px; }
+  .btn-ghost { color: var(--paper); border-color: var(--line); background: rgba(16, 22, 36, .55); }
+  .btn-ghost:hover { border-color: rgba(201, 164, 92, .55); box-shadow: 0 0 18px rgba(201, 164, 92, .16); }
 
   /* ---------- Hero ---------- */
   main { position: relative; z-index: 2; }
   .hero {
     min-height: 100vh;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
-    text-align: center; padding: 110px 24px 60px;
+    text-align: center; padding: 120px 24px 48px;
   }
   .eyebrow {
     font-family: var(--font-mono); font-size: 12px; letter-spacing: .34em;
-    color: var(--muted); text-transform: uppercase;
-    animation: rise .7s ease both .15s;
-  }
-  .eyebrow b { color: var(--cyan); font-weight: 600; }
-  h1 {
-    margin: 26px 0 0;
-    font-family: var(--font-disp); font-weight: 300;
-    font-size: clamp(3.4rem, 11vw, 8rem);
-    letter-spacing: .02em; line-height: 1.02;
-    background: var(--grad);
-    -webkit-background-clip: text; background-clip: text; color: transparent;
-    background-size: 200% auto;
-    animation: rise .8s ease both .3s, sheen 7s linear infinite 1s;
-    filter: drop-shadow(0 0 26px rgba(59, 130, 246, .35));
-  }
-  .tagline {
-    margin: 22px 0 0; max-width: 620px;
-    font-size: clamp(15px, 2.2vw, 19px); line-height: 1.8; color: var(--text);
-    animation: rise .8s ease both .45s;
-  }
-  .tagline span.grad-text {
-    background: var(--grad);
-    -webkit-background-clip: text; background-clip: text; color: transparent;
+    color: var(--gold); margin-bottom: 30px;
+    animation: rise .7s ease both .1s;
   }
 
-  /* bash 状态行（打字机） */
-  .term {
-    margin: 30px 0 0;
-    display: inline-flex; align-items: center; gap: 10px;
-    font-family: var(--font-mono); font-size: 13px; letter-spacing: .04em;
-    color: #9be8a8; background: rgba(11, 23, 39, .72);
-    border: 1px solid var(--line); border-radius: 10px;
-    padding: 10px 16px; text-align: left;
-    animation: rise .8s ease both .6s;
+  /* 活字排印：文·枢·智·汇 */
+  .type-row {
+    display: flex; justify-content: center;
+    gap: clamp(10px, 1.6vw, 22px);
+    align-items: center; flex-wrap: wrap;
   }
-  .term .prompt { color: var(--cyan); }
-  .term .ok { color: #9be8a8; }
-  .term .caret {
-    display: inline-block; width: 8px; height: 15px; margin-left: 2px;
-    background: var(--cyan); vertical-align: -2px;
-    animation: blink 1s steps(1) infinite;
+  .type-block {
+    font-family: var(--font-serif); font-weight: 700;
+    font-size: clamp(3rem, 10.5vw, 7rem);
+    color: var(--paper);
+    width: 1.24em; height: 1.24em;
+    display: grid; place-items: center;
+    border-radius: 10px;
+    background:
+      linear-gradient(155deg, rgba(255, 255, 255, .09), transparent 42%),
+      linear-gradient(180deg, var(--ink-2), #0c111c);
+    border: 1px solid rgba(236, 230, 217, .18);
+    box-shadow: 0 12px 26px rgba(0, 0, 0, .5), inset 0 1px 0 rgba(255, 255, 255, .08);
+    text-shadow: 0 2px 8px rgba(0, 0, 0, .6);
+    animation: set-block .65s cubic-bezier(.2, .9, .3, 1.15) both;
+    transition: transform .25s ease, box-shadow .25s ease;
+    user-select: none;
+  }
+  .type-block:nth-child(1) { animation-delay: .22s; }
+  .type-block:nth-child(2) { animation-delay: .34s; }
+  .type-block:nth-child(3) { animation-delay: .46s; }
+  .type-block:nth-child(4) { animation-delay: .58s; }
+  .type-block:hover { transform: translateY(-7px); box-shadow: 0 20px 38px rgba(0, 0, 0, .58), inset 0 1px 0 rgba(255, 255, 255, .1); }
+  @keyframes set-block {
+    from { opacity: 0; transform: translateY(30px) scale(.92); }
+    to { opacity: 1; transform: none; }
+  }
+
+  .hero-seal {
+    width: 64px; height: 64px; font-size: 17px; margin-left: 26px;
+    animation: stamp .5s cubic-bezier(.2, 1.4, .4, 1) both .9s;
+    flex-shrink: 0;
+  }
+  @keyframes stamp {
+    0% { opacity: 0; transform: rotate(-8deg) scale(1.9); }
+    60% { opacity: 1; transform: rotate(2deg) scale(.94); }
+    100% { opacity: 1; transform: rotate(-2deg) scale(1); }
+  }
+
+  .tagline {
+    margin: 40px 0 0; max-width: 640px;
+    font-family: var(--font-serif); font-size: clamp(19px, 2.8vw, 26px); line-height: 1.7;
+    letter-spacing: .06em;
+    animation: rise .8s ease both .7s;
+  }
+  .tagline em { font-style: normal; color: var(--cinnabar); font-weight: 700; }
+  .hero-sub {
+    margin: 16px 0 0; max-width: 560px;
+    font-size: 14.5px; color: var(--muted);
+    animation: rise .8s ease both .82s;
   }
 
   .cta-row {
-    margin-top: 42px; display: flex; gap: 16px; flex-wrap: wrap; justify-content: center;
-    animation: rise .8s ease both .75s;
+    margin-top: 38px; display: flex; gap: 16px; flex-wrap: wrap; justify-content: center;
+    animation: rise .8s ease both .94s;
   }
-  .btn {
-    display: inline-flex; align-items: center; gap: 8px;
-    font-size: 15px; font-weight: 600; letter-spacing: .04em;
-    padding: 14px 30px; border-radius: 12px; cursor: pointer;
-    transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease, background .18s ease;
-  }
-  .btn-primary {
-    color: #04121a; background: var(--grad);
-    box-shadow: 0 0 24px rgba(59, 130, 246, .45);
-    animation: pulse 2.6s ease-in-out infinite;
-  }
-  .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 0 40px rgba(34, 211, 238, .6); }
-  .btn-primary svg { width: 17px; height: 17px; }
-  .btn-ghost {
-    color: var(--text); border: 1px solid var(--line); background: rgba(10, 19, 34, .55);
-  }
-  .btn-ghost:hover { transform: translateY(-2px); border-color: rgba(34, 211, 238, .6); box-shadow: 0 0 18px rgba(34, 211, 238, .18); }
 
   .hero-stats {
-    margin-top: 54px; display: flex; gap: 34px; flex-wrap: wrap; justify-content: center;
-    font-family: var(--font-mono); font-size: 12px; letter-spacing: .12em; color: var(--muted);
-    animation: rise .8s ease both .9s;
+    margin-top: 46px; display: flex; gap: 40px; flex-wrap: wrap; justify-content: center;
+    font-family: var(--font-mono); font-size: 11.5px; letter-spacing: .14em; color: var(--muted);
+    animation: rise .8s ease both 1.06s;
   }
-  .hero-stats b { color: var(--cyan); font-weight: 600; font-size: 14px; }
+  .hero-stats b { color: var(--gold); font-weight: 600; font-size: 14px; font-family: var(--font-sans); letter-spacing: .04em; }
 
-  /* ---------- 能力卡片 ---------- */
-  .features {
-    max-width: 1080px; margin: 0 auto; padding: 40px 24px 110px;
+  /* 愿景横幅：一句话定位 */
+  .vision-strip {
+    margin: 54px auto 0; max-width: 720px;
+    display: flex; align-items: center; gap: 16px; justify-content: center;
+    padding: 16px 26px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);
+    animation: rise .8s ease both 1.18s;
   }
-  .features-title {
-    font-family: var(--font-disp); font-weight: 400; font-size: clamp(20px, 3.4vw, 28px);
-    letter-spacing: .06em; text-align: center; margin: 0 0 44px; color: var(--text);
+  .vision-strip .seal.sm { transform: rotate(0deg); }
+  .vision-strip p { margin: 0; font-family: var(--font-serif); font-size: 15.5px; letter-spacing: .1em; }
+  .vision-strip p b { color: var(--cinnabar); font-weight: 700; }
+
+  /* ---------- 通用区块 ---------- */
+  section.block { max-width: 1080px; margin: 0 auto; padding: 96px 24px; }
+  .sec-head { text-align: center; margin-bottom: 46px; }
+  .sec-eyebrow {
+    font-family: var(--font-mono); font-size: 11.5px; letter-spacing: .3em;
+    color: var(--gold); margin: 0 0 14px;
   }
-  .features-title b { color: var(--cyan); font-weight: 500; }
-  .cards {
-    display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px;
+  h2.sec-title {
+    font-family: var(--font-serif); font-size: clamp(22px, 3.6vw, 30px);
+    font-weight: 700; letter-spacing: .12em; margin: 0;
   }
-  .card {
-    position: relative; overflow: hidden;
-    background: linear-gradient(180deg, rgba(12, 22, 40, .72), rgba(8, 14, 26, .72));
-    border: 1px solid var(--line); border-radius: 16px;
-    padding: 30px 26px; text-align: left;
+  h2.sec-title span { color: var(--cinnabar); }
+  .sec-desc { margin: 14px auto 0; max-width: 620px; font-size: 14.5px; color: var(--muted); }
+  .sec-desc b { color: var(--paper); font-weight: 600; }
+
+  /* 循环链：个人创造 → … */
+  .loop {
+    margin: 46px auto 0; max-width: 720px;
+    display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap;
+  }
+  .loop span {
+    font-family: var(--font-serif); font-size: 15px; letter-spacing: .1em;
+    padding: 8px 16px; border: 1px solid var(--line); border-radius: 999px;
+    color: var(--paper);
+  }
+  .loop span.hot { border-color: rgba(207, 77, 49, .5); color: #e08a6f; }
+  .loop i {
+    font-style: normal; color: var(--cinnabar); font-size: 16px;
+  }
+
+  /* 五大能力卡片 */
+  .caps { display: flex; flex-wrap: wrap; justify-content: center; gap: 18px; }
+  .cap {
+    width: 300px; flex: 1 1 280px; max-width: 336px;
+    padding: 26px 24px; text-align: left;
+    background: linear-gradient(180deg, rgba(22, 29, 44, .78), rgba(12, 16, 27, .86));
+    border: 1px solid var(--line); border-radius: 14px;
+    position: relative;
     transition: transform .22s ease, border-color .22s ease, box-shadow .22s ease;
   }
-  .card::before {
-    content: ""; position: absolute; inset: 0; pointer-events: none;
-    background: radial-gradient(320px 160px at 50% -20%, rgba(34, 211, 238, .14), transparent 70%);
+  .cap::before {
+    content: ""; position: absolute; inset: 0; border-radius: 14px; pointer-events: none;
+    background: radial-gradient(260px 130px at 50% -12%, rgba(201, 164, 92, .12), transparent 70%);
     opacity: 0; transition: opacity .25s ease;
   }
-  .card:hover { transform: translateY(-5px); border-color: rgba(34, 211, 238, .5); box-shadow: 0 14px 44px rgba(2, 8, 20, .6); }
-  .card:hover::before { opacity: 1; }
-  .card-icon {
-    width: 46px; height: 46px; border-radius: 12px; display: grid; place-items: center;
-    background: rgba(34, 211, 238, .1); border: 1px solid rgba(34, 211, 238, .32);
-    margin-bottom: 20px;
+  .cap:hover { transform: translateY(-5px); border-color: rgba(207, 77, 49, .4); box-shadow: 0 14px 40px rgba(0, 0, 0, .5); }
+  .cap:hover::before { opacity: 1; }
+  .cap-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+  .cap-num { font-family: var(--font-serif); font-size: 19px; font-weight: 700; color: var(--cinnabar); }
+  .cap-icon { width: 42px; height: 42px; border-radius: 10px; display: grid; place-items: center; background: rgba(75, 127, 165, .12); border: 1px solid rgba(75, 127, 165, .32); }
+  .cap-icon svg { width: 21px; height: 21px; stroke: var(--azurite); }
+  .cap h3 { margin: 0 0 10px; font-size: 16.5px; letter-spacing: .05em; }
+  .cap p { margin: 0; font-size: 13.5px; line-height: 1.9; color: var(--muted); }
+  .cap p b { color: var(--paper); font-weight: 600; }
+
+  /* 价值三层：个人 → 部门 → 公司 */
+  .value-flow { display: grid; grid-template-columns: 1fr; gap: 18px; }
+  .value-card {
+    padding: 26px 28px; border-radius: 14px;
+    background: linear-gradient(180deg, rgba(22, 29, 44, .78), rgba(12, 16, 27, .86));
+    border: 1px solid var(--line); border-left: 3px solid;
   }
-  .card-icon svg { width: 22px; height: 22px; stroke: var(--cyan); }
-  .card:nth-child(2) .card-icon { background: rgba(139, 92, 246, .1); border-color: rgba(139, 92, 246, .32); }
-  .card:nth-child(2) .card-icon svg { stroke: #a78bfa; }
-  .card:nth-child(3) .card-icon { background: rgba(59, 130, 246, .1); border-color: rgba(59, 130, 246, .32); }
-  .card:nth-child(3) .card-icon svg { stroke: #60a5fa; }
-  .card h3 { margin: 0 0 10px; font-size: 17px; letter-spacing: .03em; }
-  .card p { margin: 0; font-size: 13.5px; line-height: 1.85; color: var(--muted); }
+  .value-card.person { border-left-color: var(--cinnabar); }
+  .value-card.dept { border-left-color: var(--azurite); }
+  .value-card.company { border-left-color: var(--gold); }
+  .value-card .who { font-family: var(--font-serif); font-size: 13px; letter-spacing: .3em; margin-bottom: 8px; }
+  .value-card.person .who { color: var(--cinnabar); }
+  .value-card.dept .who { color: var(--azurite); }
+  .value-card.company .who { color: var(--gold); }
+  .value-card h3 { margin: 0 0 10px; font-size: 18px; letter-spacing: .06em; }
+  .value-card p { margin: 0; font-size: 14px; color: var(--muted); line-height: 1.9; }
+  .value-card p b { color: var(--paper); }
+
+  /* 安全三要 */
+  .safe-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 18px; }
+  .safe-item {
+    flex: 1 1 240px; max-width: 320px; text-align: left;
+    padding: 24px; border-radius: 14px;
+    background: rgba(16, 22, 36, .6); border: 1px solid var(--line);
+  }
+  .safe-item .tick { color: var(--azurite); font-size: 17px; font-weight: 700; margin-right: 6px; }
+  .safe-item h4 { margin: 0 0 8px; font-size: 15.5px; letter-spacing: .05em; }
+  .safe-item p { margin: 0; font-size: 13.5px; color: var(--muted); line-height: 1.85; }
+
+  /* 愿景收尾 */
+  .vision {
+    text-align: center; padding-bottom: 110px;
+  }
+  .vision .seal.big {
+    width: 84px; height: 84px; font-size: 20px; margin: 0 auto 34px;
+  }
+  .vision blockquote {
+    margin: 0 auto 22px; max-width: 760px;
+    font-family: var(--font-serif); font-size: clamp(20px, 3.4vw, 30px);
+    font-weight: 700; letter-spacing: .1em; line-height: 1.8;
+  }
+  .vision blockquote em { font-style: normal; color: var(--cinnabar); }
+  .vision p.v-body { margin: 0 auto 40px; max-width: 620px; color: var(--muted); font-size: 14.5px; }
+  .vision p.v-body b { color: var(--paper); }
+  .vision .btn-primary { font-size: 16px; padding: 15px 34px; }
+  .vision .invite { margin-top: 18px; font-size: 13px; color: var(--muted); letter-spacing: .08em; }
 
   footer {
     position: relative; z-index: 2; text-align: center;
-    padding: 30px 20px 44px; font-family: var(--font-mono);
-    font-size: 11.5px; letter-spacing: .14em; color: rgba(143, 163, 189, .62);
+    padding: 30px 20px 46px; font-family: var(--font-mono);
+    font-size: 11px; letter-spacing: .16em; color: rgba(152, 161, 176, .6);
   }
+
+  /* 滚动渐显 */
+  .reveal { opacity: 0; transform: translateY(26px); transition: opacity .6s ease, transform .6s ease; }
+  .reveal.in { opacity: 1; transform: none; }
 
   @keyframes rise {
     from { opacity: 0; transform: translateY(22px); }
     to { opacity: 1; transform: translateY(0); }
   }
-  @keyframes sheen {
-    0% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
-    100% { background-position: 0% 50%; }
-  }
-  @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
-  @keyframes pulse {
-    0%, 100% { box-shadow: 0 0 20px rgba(59, 130, 246, .4); }
-    50% { box-shadow: 0 0 34px rgba(34, 211, 238, .62); }
-  }
 
   @media (max-width: 860px) {
-    .cards { grid-template-columns: 1fr; }
     header { padding: 14px 20px; }
-    .hero { padding-top: 90px; }
-    .hero-stats { gap: 18px; }
+    .hero { padding-top: 100px; }
+    .hero-stats { gap: 22px; }
+    .margin-line { left: 18px; }
+    .value-flow { grid-template-columns: 1fr; }
+    section.block { padding: 72px 20px; }
   }
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation: none !important; transition: none !important; }
     html { scroll-behavior: auto; }
+    .reveal { opacity: 1; transform: none; }
   }
 </style>
 </head>
 <body>
-  <canvas id="bg" aria-hidden="true"></canvas>
-  <div class="grid-overlay" aria-hidden="true"></div>
-  <div class="glow g1" aria-hidden="true"></div>
-  <div class="glow g2" aria-hidden="true"></div>
-  <div class="glow g3" aria-hidden="true"></div>
+  <div class="paper-grid" aria-hidden="true"></div>
+  <div class="margin-line" aria-hidden="true"></div>
 
   <header>
-    <a class="brand" href="/" aria-label="Doc-Helper 首页">
-      <span class="brand-mark">
-        <svg viewBox="0 0 24 24" fill="none" stroke="#04121a" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M13 2 4.5 13.5H11L9.5 22 19 10h-6.5L13 2z"/>
-        </svg>
-      </span>
-      <span class="brand-name">DOC<em>-</em>HELPER</span>
+    <a class="brand" href="/" aria-label="文枢智汇 首页">
+      <span class="seal sm"><span>文枢</span><span>智汇</span></span>
+      <span class="brand-name">文枢智汇<small class="brand-sub">DOCUMENT · KNOWLEDGE · AGENT</small></span>
     </a>
     <a class="btn btn-ghost" href="/index.html" style="padding:9px 18px;font-size:13px;">进入工作台</a>
   </header>
 
   <main>
+    <!-- 首屏：活字排印 -->
     <section class="hero">
-      <p class="eyebrow">Local-first · AI-powered · <b>Zero-upload</b></p>
-      <h1>Doc-Helper</h1>
-      <p class="tagline">一句话描述需求，智能体帮你处理 <span class="grad-text">Excel / Word / PPT</span>。<br>
-        合并、拆分、清洗、生成 —— 全程本地处理，文档永不上传。</p>
+      <p class="eyebrow">文档处理 · 经验共享 · 智能体平台</p>
 
-      <div class="term" role="status">
-        <span class="prompt">$</span>
-        <span id="term-text"></span><span class="caret" aria-hidden="true"></span>
+      <div class="type-row">
+        <span class="type-block">文</span>
+        <span class="type-block">枢</span>
+        <span class="type-block">智</span>
+        <span class="type-block">汇</span>
+        <span class="seal hero-seal"><span>文枢</span><span>智汇</span></span>
       </div>
+
+      <p class="tagline">专注于<em>文档处理</em>与<em>经验共享</em>的智能体平台</p>
+      <p class="hero-sub">把一线需求当场变成工具，让工具在组织中流动、沉淀、增值。</p>
 
       <div class="cta-row">
         <a class="btn btn-primary" href="/index.html">
           进入工作台
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
         </a>
-        <a class="btn btn-ghost" href="#features">了解能力</a>
+        <a class="btn btn-ghost" href="#why">了解愿景</a>
       </div>
 
       <div class="hero-stats">
-        <span><b>0</b>&nbsp;上传</span>
-        <span><b>3s</b>&nbsp;生成新工具</span>
+        <span><b>27</b>&nbsp;内嵌工具</span>
+        <span><b>0</b>&nbsp;文档上传</span>
         <span><b>100%</b>&nbsp;本地运行</span>
+      </div>
+
+      <div class="vision-strip">
+        <span class="seal sm"><span>文枢</span><span>智汇</span></span>
+        <p>个人创造 → 组织沉淀 → 群体复用 → 持续进化</p>
       </div>
     </section>
 
-    <section id="features" class="features">
-      <h2 class="features-title">一个工作台 · <b>三种力量</b></h2>
-      <div class="cards">
-        <article class="card">
-          <div class="card-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-              <rect x="9" y="2" width="6" height="6" rx="1.5"/><rect x="2" y="16" width="6" height="6" rx="1.5"/><rect x="16" y="16" width="6" height="6" rx="1.5"/><path d="M12 8v3a3 3 0 0 1-3 3H8v2M12 11a3 3 0 0 0 3 3h1v2"/>
-            </svg>
+    <!-- 一、为什么 -->
+    <section id="why" class="block">
+      <div class="sec-head reveal">
+        <p class="sec-eyebrow">01 · 为什么</p>
+        <h2 class="sec-title">需求，应当由一线<span>自己生长出来</span></h2>
+        <p class="sec-desc">最了解业务的，永远是奋斗在一线的每一位同事。文枢智汇不替大家"想需求"——它让每个人用自己的话描述需求，<b>AI 当场把需求变成工具</b>，再让工具在组织里流动、沉淀、增值。</p>
+      </div>
+    </section>
+
+    <!-- 二、是什么：五大能力 -->
+    <section id="capabilities" class="block">
+      <div class="sec-head reveal">
+        <p class="sec-eyebrow">02 · 平台生态</p>
+        <h2 class="sec-title">一个平台 · <span>五大能力</span> · 生态闭环</h2>
+        <p class="sec-desc">五条路径环环相扣，构成"个人创造 → 组织沉淀 → 群体复用 → 持续进化"的正向循环。</p>
+      </div>
+
+      <div class="caps">
+        <article class="cap reveal">
+          <div class="cap-head">
+            <span class="cap-num">一</span>
+            <span class="cap-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></span>
           </div>
-          <h3>AI 智能体</h3>
-          <p>用自然语言描述需求，智能体会自动调用已有工具，或在现场编写全新的处理脚本 —— 无需写代码。</p>
+          <h3>内嵌工具合集</h3>
+          <p>开箱即用，无需任何技术基础，人人可上手。</p>
         </article>
-        <article class="card">
-          <div class="card-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3z"/><path d="M4 7.5l8 4.5 8-4.5M12 12v9"/>
-            </svg>
+        <article class="cap reveal">
+          <div class="cap-head">
+            <span class="cap-num">二</span>
+            <span class="cap-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.2L19 10l-5.1 1.8L12 17l-1.9-5.2L5 10l5.1-1.8L12 3z"/><path d="M19 15l.9 2.4L22 18l-2.1.6L19 21l-.9-2.4L16 18l2.1-.6L19 15z"/></svg></span>
           </div>
-          <h3>即开即用工具库</h3>
-          <p>Excel 合并、拆分、数据清洗与格式化，Word 内容替换与多文档合并，拖拽文件即可运行，实时显示进度。</p>
+          <h3>智能体定制工具</h3>
+          <p>一句话描述需求，当场生成专属工具。<b>需求的表达者，就是工具的创造者。</b></p>
         </article>
-        <article class="card">
-          <div class="card-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M12 2l8 3.5v5.2c0 4.9-3.3 9.3-8 11.3-4.7-2-8-6.4-8-11.3V5.5L12 2z"/><path d="M8.5 12l2.4 2.4 4.6-4.8"/>
-            </svg>
+        <article class="cap reveal">
+          <div class="cap-head">
+            <span class="cap-num">三</span>
+            <span class="cap-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg></span>
           </div>
-          <h3>本地隐私安全</h3>
-          <p>文档处理内核内置本机，全部计算在本地完成，数据不出设备，离线也能安心使用。</p>
+          <h3>实用工具上传共享</h3>
+          <p>把实践中筛选出的好工具传上共享平台，<b>一个人的巧思，变成所有人的能力</b>。</p>
         </article>
+        <article class="cap reveal">
+          <div class="cap-head">
+            <span class="cap-num">四</span>
+            <span class="cap-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M5 21V7l7-4 7 4v14"/><path d="M9 21v-6h6v6M9 10h.01M15 10h.01M9 13h.01M15 13h.01"/></svg></span>
+          </div>
+          <h3>部门共享平台</h3>
+          <p>各部门按业务实际自建共享平台，沉淀贴合实战的<b>部门工具池</b>。</p>
+        </article>
+        <article class="cap reveal">
+          <div class="cap-head">
+            <span class="cap-num">五</span>
+            <span class="cap-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1L3.2 9.5l6.1-.9L12 3z"/></svg></span>
+          </div>
+          <h3>个人工具库双通道</h3>
+          <p>自己定制的工具直接入库，或从共享平台<b>收藏他人沉淀的好工具</b>为己所用。</p>
+        </article>
+      </div>
+
+      <div class="loop reveal">
+        <span>个人创造</span><i>→</i>
+        <span>组织沉淀</span><i>→</i>
+        <span class="hot">群体复用</span><i>→</i>
+        <span class="hot">持续进化</span>
+      </div>
+    </section>
+
+    <!-- 三、价值 -->
+    <section id="value" class="block">
+      <div class="sec-head reveal">
+        <p class="sec-eyebrow">03 · 价值</p>
+        <h2 class="sec-title">经验，第一次被<span>写下来</span></h2>
+        <p class="sec-desc">表面上交付的是一个又一个工具，本质上沉淀的是知识，革新的是经验的传承方式。</p>
+      </div>
+
+      <div class="value-flow">
+        <article class="value-card person reveal">
+          <p class="who">对个人</p>
+          <h3>工具即经验</h3>
+          <p>每生成一个工具，就把一份业务理解结构化地"写"了下来。<b>经验第一次变得可见、可存、可传播</b>，不再只存于头脑中。</p>
+        </article>
+        <article class="value-card dept reveal">
+          <p class="who">对部门</p>
+          <h3>工具即教材</h3>
+          <p>各部门的共享平台，就是本部门的<b>集体智慧库</b>。新人不必从零摸索，站在前人的肩膀上快速上手；最优实践在部门内自然扩散。</p>
+        </article>
+        <article class="value-card company reveal">
+          <p class="who">对公司</p>
+          <h3>工具即地图</h3>
+          <p>千万条一线需求，汇聚成一张动态生长的<b>业务流程全景图</b>——哪些环节被反复优化、哪些流程是共性痛点，一目了然。</p>
+        </article>
+      </div>
+    </section>
+
+    <!-- 四、安全 -->
+    <section id="security" class="block">
+      <div class="sec-head reveal">
+        <p class="sec-eyebrow">04 · 安全</p>
+        <h2 class="sec-title">为<span>信任</span>而设计</h2>
+        <p class="sec-desc">安全与可控，是平台设计的底线。</p>
+      </div>
+      <div class="safe-row">
+        <div class="safe-item reveal"><h4><span class="tick">✓</span>文档数据不出本机</h4><p>坚持本地化处理原则，文档数据全程留在本机，不上传任何服务器。</p></div>
+        <div class="safe-item reveal"><h4><span class="tick">✓</span>AI 工具默认草稿</h4><p>智能体生成的工具默认处于草稿状态，必须经你手动启用方可生效。</p></div>
+        <div class="safe-item reveal"><h4><span class="tick">✓</span>注册审核后执行</h4><p>系统只执行经过注册审核的工具，杜绝任何不可控风险。</p></div>
+      </div>
+    </section>
+
+    <!-- 五、愿景 -->
+    <section id="vision" class="block vision">
+      <div class="reveal">
+        <span class="seal big"><span>文枢</span><span>智汇</span></span>
+        <blockquote>从一个人的提效，到<em>一个部门的沉淀</em>，<br>再到整个公司的进化。</blockquote>
+        <p class="v-body">让每一位员工的能力被沉淀、被看见、被放大；让知识在组织中自由流动；<b>让公司成为一个会自己"长本事"的学习型组织</b>。</p>
+        <a class="btn btn-primary" href="/index.html">
+          进入工作台 · 成为第一批共创者
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        </a>
+        <p class="invite">把经验沉淀下来，让智慧汇聚起来</p>
       </div>
     </section>
   </main>
 
-  <footer>DOC-HELPER · LOCAL INTELLIGENT DOCUMENT WORKBENCH · POWERED BY OFFICECLI</footer>
+  <footer>文枢智汇 · 专注于文档处理与经验共享的智能体平台 · POWERED BY OFFICECLI</footer>
 
   <script>
     (function () {
       const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-      /* ---------- bash 状态行：循环打字 ---------- */
-      const term = document.getElementById('term-text');
-      const lines = [
-        '启动文档引擎 ... 完成',
-        '内核就绪 · officecli v1.0',
-        'AI 智能体在线，等待指令 ...'
-      ];
-      let li = 0, ci = 0, deleting = false;
-      function tick() {
-        const cur = lines[li];
-        if (!deleting) {
-          ci++;
-          term.textContent = cur.slice(0, ci);
-          if (ci === cur.length) { deleting = true; setTimeout(tick, 1400); return; }
-          setTimeout(tick, 38 + Math.random() * 45);
-        } else {
-          ci--;
-          term.textContent = cur.slice(0, ci);
-          if (ci === 0) { deleting = false; li = (li + 1) % lines.length; setTimeout(tick, 500); return; }
-          setTimeout(tick, 16);
-        }
-      }
-      if (reduceMotion) {
-        term.textContent = lines[lines.length - 1];
+      /* 滚动渐显 */
+      const revealEls = document.querySelectorAll('.reveal');
+      if (reduceMotion || !('IntersectionObserver' in window)) {
+        revealEls.forEach((el) => el.classList.add('in'));
       } else {
-        setTimeout(tick, 1500);
-      }
-
-      /* ---------- 粒子数据流背景 ---------- */
-      const canvas = document.getElementById('bg');
-      const ctx = canvas.getContext('2d');
-      let w, h, dpr, pts = [], mouse = { x: -9999, y: -9999 };
-      const COLORS = ['34,211,238', '59,130,246', '139,92,246'];
-
-      function resize() {
-        dpr = Math.min(window.devicePixelRatio || 1, 2);
-        w = canvas.clientWidth = window.innerWidth;
-        h = canvas.clientHeight = window.innerHeight;
-        canvas.width = w * dpr;
-        canvas.height = h * dpr;
-        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-        seed();
-      }
-      function seed() {
-        const n = Math.min(110, Math.floor((w * h) / 14000));
-        pts = [];
-        for (let i = 0; i < n; i++) {
-          pts.push({
-            x: Math.random() * w, y: Math.random() * h,
-            vx: (Math.random() - .5) * .5, vy: (Math.random() - .5) * .5,
-            r: Math.random() * 1.6 + .6,
-            c: COLORS[i % COLORS.length]
-          });
-        }
-      }
-
-      function step() {
-        ctx.clearRect(0, 0, w, h);
-        const LINK = 130, LINK2 = LINK * LINK;
-
-        for (const p of pts) {
-          p.x += p.vx; p.y += p.vy;
-          if (p.x < -20) p.x = w + 20; else if (p.x > w + 20) p.x = -20;
-          if (p.y < -20) p.y = h + 20; else if (p.y > h + 20) p.y = -20;
-          // 鼠标轻微吸引
-          const dxm = mouse.x - p.x, dym = mouse.y - p.y;
-          const dm2 = dxm * dxm + dym * dym;
-          if (dm2 < 20000) { const f = 1 - dm2 / 20000; p.x += dxm * f * .02; p.y += dym * f * .02; }
-          ctx.beginPath();
-          ctx.arc(p.x, p.y, p.r, 0, 7);
-          ctx.fillStyle = 'rgba(' + p.c + ',.55)';
-          ctx.fill();
-        }
-        for (let i = 0; i < pts.length; i++) {
-          for (let j = i + 1; j < pts.length; j++) {
-            const a = pts[i], b = pts[j];
-            const dx = a.x - b.x, dy = a.y - b.y;
-            const d2 = dx * dx + dy * dy;
-            if (d2 < LINK2) {
-              const alpha = (1 - d2 / LINK2) * .3;
-              ctx.strokeStyle = 'rgba(' + a.c + ',' + alpha + ')';
-              ctx.lineWidth = 1;
-              ctx.beginPath();
-              ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y);
-              ctx.stroke();
+        const io = new IntersectionObserver((entries) => {
+          for (const entry of entries) {
+            if (entry.isIntersecting) {
+              entry.target.classList.add('in');
+              io.unobserve(entry.target);
             }
           }
-        }
-        requestAnimationFrame(step);
+        }, { threshold: .12 });
+        revealEls.forEach((el) => io.observe(el));
       }
-
-      if (reduceMotion) {
-        // 静态帧：只画一次粒子，不连帧
-        resize();
-        ctx.clearRect(0, 0, w, h);
-        for (const p of pts) {
-          ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 7);
-          ctx.fillStyle = 'rgba(' + p.c + ',.5)'; ctx.fill();
-        }
-      } else {
-        resize();
-        step();
-      }
-
-      window.addEventListener('resize', resize);
-      window.addEventListener('mousemove', (e) => {
-        mouse.x = e.clientX; mouse.y = e.clientY;
-      });
-      window.addEventListener('mouseleave', () => { mouse.x = -9999; mouse.y = -9999; });
     })();
   </script>
 </body>

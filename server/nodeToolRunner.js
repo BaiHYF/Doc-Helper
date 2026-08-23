@@ -29,7 +29,7 @@ process.stdin.on('end', run);
 async function run() {
   let payload;
   try { payload = JSON.parse(stdin); } catch (_) { return fail('运行器入参不是合法 JSON'); }
-  const toolPath = process.argv[2];
+  const toolPath = process.env.SEA_TOOL_PATH || process.argv[2];
   if (!toolPath || !fs.existsSync(toolPath)) return fail('工具脚本不存在: ' + toolPath);
   const officecli = payload && payload.officecli;
   if (!officecli || !fs.existsSync(officecli)) return fail('officecli 未配置');
